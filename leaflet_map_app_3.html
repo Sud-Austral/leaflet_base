@@ -19,15 +19,15 @@
     
     <style>
         :root {
-            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            --accent-gradient: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
-            --glass-bg: rgba(255, 255, 255, 0.05);
-            --glass-border: rgba(255, 255, 255, 0.1);
+            --primary: #667eea;
+            --secondary: #764ba2;
+            --accent: #ff6b6b;
+            --glass-bg: rgba(255, 255, 255, 0.1);
+            --glass-border: rgba(255, 255, 255, 0.2);
             --text-primary: #ffffff;
             --text-secondary: rgba(255, 255, 255, 0.8);
-            --shadow-lg: 0 20px 40px rgba(0, 0, 0, 0.15);
-            --shadow-md: 0 8px 25px rgba(0, 0, 0, 0.1);
-            --border-radius: 16px;
+            --shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            --radius: 16px;
             --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
@@ -41,33 +41,32 @@
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
             height: 100vh;
             display: flex;
-            background: var(--primary-gradient);
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
             overflow: hidden;
         }
 
-        /* Loading Screen */
-        .loading-screen {
+        .loading {
             position: fixed;
             top: 0;
             left: 0;
             width: 100vw;
             height: 100vh;
-            background: var(--primary-gradient);
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
             display: flex;
             align-items: center;
             justify-content: center;
             z-index: 10000;
-            transition: opacity 0.5s ease, visibility 0.5s ease;
+            transition: opacity 0.5s ease;
         }
 
-        .loading-screen.hidden {
+        .loading.hidden {
             opacity: 0;
-            visibility: hidden;
+            pointer-events: none;
         }
 
-        .loader {
-            width: 60px;
-            height: 60px;
+        .spinner {
+            width: 50px;
+            height: 50px;
             border: 3px solid rgba(255, 255, 255, 0.3);
             border-top: 3px solid white;
             border-radius: 50%;
@@ -82,47 +81,30 @@
         #map {
             flex: 1;
             height: 100vh;
-            position: relative;
-            border-radius: 0 var(--border-radius) var(--border-radius) 0;
+            border-radius: 0 var(--radius) var(--radius) 0;
             overflow: hidden;
-            box-shadow: var(--shadow-lg);
+            box-shadow: var(--shadow);
         }
 
         #sidebar {
-            width: 320px;
-            background: var(--primary-gradient);
+            width: 300px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
             color: var(--text-primary);
-            padding: 24px;
-            box-shadow: var(--shadow-lg);
+            padding: 20px;
+            box-shadow: var(--shadow);
             overflow-y: auto;
-            scrollbar-width: thin;
-            scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
             backdrop-filter: blur(20px);
-            border-right: 1px solid var(--glass-border);
-        }
-
-        #sidebar::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        #sidebar::-webkit-scrollbar-track {
-            background: transparent;
-        }
-
-        #sidebar::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.3);
-            border-radius: 3px;
         }
 
         .sidebar-header {
             text-align: center;
-            margin-bottom: 32px;
+            margin-bottom: 30px;
         }
 
         .sidebar-title {
-            font-size: 1.75rem;
+            font-size: 1.5rem;
             font-weight: 700;
-            margin-bottom: 8px;
+            margin-bottom: 5px;
             background: linear-gradient(45deg, #ffffff, #e3f2fd);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
@@ -130,89 +112,71 @@
         }
 
         .sidebar-subtitle {
-            font-size: 0.875rem;
+            font-size: 0.85rem;
             color: var(--text-secondary);
-            font-weight: 400;
         }
 
-        .section-card {
+        .section {
             background: var(--glass-bg);
-            border-radius: var(--border-radius);
+            border-radius: var(--radius);
             padding: 20px;
             margin-bottom: 20px;
             backdrop-filter: blur(20px);
             border: 1px solid var(--glass-border);
             transition: var(--transition);
-            box-shadow: var(--shadow-md);
         }
 
-        .section-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
+        .section:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
         }
 
         .section-title {
-            font-size: 1.125rem;
+            font-size: 1.1rem;
             font-weight: 600;
-            margin-bottom: 16px;
+            margin-bottom: 15px;
             display: flex;
             align-items: center;
             gap: 8px;
         }
 
-        .section-icon {
-            font-size: 1.25rem;
-        }
-
         .basemap-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 12px;
+            gap: 10px;
         }
 
-        .basemap-option {
-            position: relative;
-            padding: 12px;
-            border-radius: 12px;
+        .basemap-btn {
+            padding: 10px;
+            border-radius: 10px;
             cursor: pointer;
             transition: var(--transition);
-            background: rgba(255, 255, 255, 0.05);
+            background: rgba(255, 255, 255, 0.1);
             border: 2px solid transparent;
             text-align: center;
+            font-size: 0.85rem;
+            font-weight: 500;
         }
 
-        .basemap-option:hover {
-            background: rgba(255, 255, 255, 0.1);
+        .basemap-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
             transform: scale(1.02);
         }
 
-        .basemap-option.active {
-            background: var(--accent-gradient);
+        .basemap-btn.active {
+            background: var(--accent);
             border-color: rgba(255, 255, 255, 0.3);
             box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
         }
 
-        .basemap-option input[type="radio"] {
-            position: absolute;
-            opacity: 0;
-            pointer-events: none;
-        }
-
-        .basemap-option label {
-            cursor: pointer;
-            font-size: 0.875rem;
-            font-weight: 500;
-            display: block;
-        }
-
-        .stats-grid {
+        .stats {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            margin-top: 16px;
+            gap: 10px;
+            margin-top: 15px;
         }
 
-        .stat-item {
+        .stat {
             background: rgba(255, 255, 255, 0.1);
             padding: 12px;
             border-radius: 8px;
@@ -220,88 +184,69 @@
         }
 
         .stat-number {
-            font-size: 1.5rem;
+            font-size: 1.3rem;
             font-weight: 700;
-            color: #fff;
             display: block;
         }
 
         .stat-label {
             font-size: 0.75rem;
             color: var(--text-secondary);
-            margin-top: 4px;
+            margin-top: 2px;
         }
 
-        .feature-list {
+        .features {
             list-style: none;
-            padding: 0;
         }
 
-        .feature-item {
+        .feature {
             display: flex;
             align-items: center;
             gap: 8px;
-            padding: 8px 0;
-            font-size: 0.875rem;
+            padding: 6px 0;
+            font-size: 0.85rem;
             color: var(--text-secondary);
         }
 
         .feature-icon {
             width: 16px;
             height: 16px;
-            background: var(--accent-gradient);
+            background: var(--accent);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 0.75rem;
+            font-size: 10px;
         }
 
-        /* Enhanced Popup Styles */
+        /* Enhanced Popup */
         .leaflet-popup-content-wrapper {
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow-lg);
-            border: none;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(20px);
-        }
-
-        .leaflet-popup-tip {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px);
-        }
-
-        .popup-content {
-            max-width: 300px;
-            font-family: 'Inter', sans-serif;
         }
 
         .popup-header {
-            background: var(--primary-gradient);
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
             color: white;
-            padding: 16px;
-            margin: -10px -10px 16px -10px;
-            border-radius: var(--border-radius) var(--border-radius) 0 0;
+            padding: 15px;
+            margin: -10px -10px 15px -10px;
+            border-radius: var(--radius) var(--radius) 0 0;
         }
 
         .popup-title {
             font-weight: 600;
-            font-size: 1.125rem;
+            font-size: 1.1rem;
             margin: 0;
-        }
-
-        .popup-subtitle {
-            font-size: 0.875rem;
-            opacity: 0.8;
-            margin-top: 4px;
         }
 
         .popup-property {
             display: flex;
             justify-content: space-between;
-            padding: 8px 0;
+            padding: 6px 0;
             border-bottom: 1px solid #f0f0f0;
-            font-size: 0.875rem;
+            font-size: 0.85rem;
         }
 
         .popup-property:last-child {
@@ -313,75 +258,28 @@
             color: #666;
         }
 
-        .popup-value {
-            font-weight: 400;
-            color: #333;
-        }
-
-        .details-toggle {
-            background: var(--primary-gradient);
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 0.875rem;
-            margin-top: 12px;
-            transition: var(--transition);
-            width: 100%;
-        }
-
-        .details-toggle:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-        }
-
         /* Custom Controls */
         .leaflet-control-custom {
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(20px);
-            width: 44px;
-            height: 44px;
-            border-radius: 12px;
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 18px;
-            box-shadow: var(--shadow-md);
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            font-size: 16px;
+            box-shadow: var(--shadow);
             cursor: pointer;
             transition: var(--transition);
         }
 
         .leaflet-control-custom:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
         }
 
-        .floating-stats {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px);
-            padding: 16px;
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow-md);
-            z-index: 1000;
-            min-width: 200px;
-            opacity: 0;
-            transform: translateY(-20px);
-            transition: var(--transition);
-            pointer-events: none;
-        }
-
-        .floating-stats.visible {
-            opacity: 1;
-            transform: translateY(0);
-            pointer-events: auto;
-        }
-
-        /* Responsive Design */
+        /* Responsive */
         @media (max-width: 768px) {
             body {
                 flex-direction: column;
@@ -390,227 +288,177 @@
             #sidebar {
                 width: 100%;
                 height: auto;
-                max-height: 45vh;
+                max-height: 40vh;
                 border-radius: 0;
-                padding: 16px;
+                padding: 15px;
             }
             
             #map {
-                height: 55vh;
+                height: 60vh;
                 border-radius: 0;
             }
 
             .basemap-grid {
                 grid-template-columns: 1fr;
             }
-
-            .stats-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .floating-stats {
-                position: relative;
-                top: auto;
-                right: auto;
-                margin-bottom: 16px;
-            }
         }
 
-        /* Performance optimizations */
-        .leaflet-marker-icon,
-        .leaflet-marker-shadow {
-            transform: translate3d(0, 0, 0);
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
-        /* Micro-animations */
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+        .section {
+            animation: fadeIn 0.6s ease forwards;
         }
 
-        .section-card {
-            animation: fadeInUp 0.6s ease forwards;
-        }
-
-        .section-card:nth-child(1) { animation-delay: 0.1s; }
-        .section-card:nth-child(2) { animation-delay: 0.2s; }
-        .section-card:nth-child(3) { animation-delay: 0.3s; }
+        .section:nth-child(1) { animation-delay: 0.1s; }
+        .section:nth-child(2) { animation-delay: 0.2s; }
+        .section:nth-child(3) { animation-delay: 0.3s; }
     </style>
 </head>
 <body>
-    <!-- Loading Screen -->
-    <div class="loading-screen" id="loadingScreen">
-        <div class="loader"></div>
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
     </div>
 
     <div id="sidebar">
         <div class="sidebar-header">
             <div class="sidebar-title">🗺️ MapView Pro</div>
-            <div class="sidebar-subtitle">Visualización Avanzada de Datos</div>
+            <div class="sidebar-subtitle">Visualización Avanzada</div>
         </div>
 
-        <div class="section-card">
+        <div class="section">
             <div class="section-title">
-                <span class="section-icon">🎨</span>
+                <span>🎨</span>
                 Estilos de Mapa
             </div>
-            <div class="basemap-grid" id="basemapGrid">
-                <div class="basemap-option active" data-basemap="osm">
-                    <input type="radio" id="osm" name="basemap" value="osm" checked>
-                    <label for="osm">Estándar</label>
-                </div>
-                <div class="basemap-option" data-basemap="satellite">
-                    <input type="radio" id="satellite" name="basemap" value="satellite">
-                    <label for="satellite">Satélite</label>
-                </div>
-                <div class="basemap-option" data-basemap="terrain">
-                    <input type="radio" id="terrain" name="basemap" value="terrain">
-                    <label for="terrain">Terreno</label>
-                </div>
-                <div class="basemap-option" data-basemap="dark">
-                    <input type="radio" id="dark" name="basemap" value="dark">
-                    <label for="dark">Oscuro</label>
-                </div>
+            <div class="basemap-grid">
+                <div class="basemap-btn active" data-map="osm">Estándar</div>
+                <div class="basemap-btn" data-map="satellite">Satélite</div>
+                <div class="basemap-btn" data-map="terrain">Terreno</div>
+                <div class="basemap-btn" data-map="dark">Oscuro</div>
             </div>
         </div>
 
-        <div class="section-card">
+        <div class="section">
             <div class="section-title">
-                <span class="section-icon">📊</span>
+                <span>📊</span>
                 Estadísticas
             </div>
-            <div class="stats-grid">
-                <div class="stat-item">
+            <div class="stats">
+                <div class="stat">
                     <span class="stat-number" id="pointCount">-</span>
                     <span class="stat-label">Puntos</span>
                 </div>
-                <div class="stat-item">
-                    <span class="stat-number" id="clusterCount">-</span>
-                    <span class="stat-label">Clusters</span>
+                <div class="stat">
+                    <span class="stat-number" id="zoom">-</span>
+                    <span class="stat-label">Zoom</span>
                 </div>
             </div>
         </div>
 
-        <div class="section-card">
+        <div class="section">
             <div class="section-title">
-                <span class="section-icon">⚡</span>
+                <span>⚡</span>
                 Características
             </div>
-            <ul class="feature-list">
-                <li class="feature-item">
+            <ul class="features">
+                <li class="feature">
                     <span class="feature-icon">✓</span>
                     Clustering inteligente
                 </li>
-                <li class="feature-item">
+                <li class="feature">
                     <span class="feature-icon">✓</span>
-                    Popups interactivos
+                    Popups mejorados
                 </li>
-                <li class="feature-item">
+                <li class="feature">
                     <span class="feature-icon">✓</span>
-                    Múltiples estilos de mapa
+                    Múltiples mapas base
                 </li>
-                <li class="feature-item">
+                <li class="feature">
                     <span class="feature-icon">✓</span>
-                    Optimizado para móviles
-                </li>
-                <li class="feature-item">
-                    <span class="feature-icon">✓</span>
-                    Carga asíncrona
+                    Diseño responsivo
                 </li>
             </ul>
         </div>
     </div>
 
-    <div id="map">
-        <div class="floating-stats" id="floatingStats">
-            <div style="font-weight: 600; margin-bottom: 8px;">Estado del Mapa</div>
-            <div style="font-size: 0.875rem; color: #666;">
-                <div>Zoom: <span id="currentZoom">-</span></div>
-                <div>Centro: <span id="currentCenter">-</span></div>
-            </div>
-        </div>
-    </div>
+    <div id="map"></div>
 
-    <!-- Leaflet JS -->
+    <!-- Scripts -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
 
     <script>
+        // App Class
         class MapApp {
             constructor() {
                 this.map = null;
-                this.currentBaseMap = null;
-                this.markerCluster = null;
-                this.geoJsonData = null;
-                this.stats = {
-                    pointCount: 0,
-                    clusterCount: 0
-                };
-                
+                this.currentBase = null;
+                this.cluster = null;
+                this.pointCount = 0;
                 this.init();
             }
 
             async init() {
-                try {
-                    await this.initMap();
-                    await this.loadData();
-                    this.setupEventListeners();
-                    this.hideLoading();
-                } catch (error) {
-                    console.error('Error initializing app:', error);
-                    this.showError('Error al inicializar la aplicación');
-                }
+                this.initMap();
+                await this.loadData();
+                this.setupEvents();
+                this.hideLoading();
             }
 
             initMap() {
-                // Initialize map
-                this.map = L.map('map', {
-                    center: [-33.45, -70.65],
-                    zoom: 10,
-                    zoomControl: false,
-                    renderer: L.canvas() // Use canvas for better performance
-                });
+                // Create map
+                this.map = L.map('map').setView([-33.45, -70.65], 10);
 
-                // Define base maps
+                // Base maps
                 this.baseMaps = {
                     osm: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                        attribution: '© OpenStreetMap contributors',
+                        attribution: '© OpenStreetMap',
                         maxZoom: 19
                     }),
                     satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-                        attribution: '© Esri, Maxar, Earthstar Geographics',
+                        attribution: '© Esri',
                         maxZoom: 19
                     }),
                     terrain: L.tileLayer('https://stamen-tiles-{s}.a.ssl.fastly.net/terrain/{z}/{x}/{y}.png', {
-                        attribution: '© Stamen Design, © OpenStreetMap contributors',
+                        attribution: '© Stamen Design',
                         maxZoom: 18
                     }),
                     dark: L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-                        attribution: '© CARTO, © OpenStreetMap contributors',
+                        attribution: '© CARTO',
                         maxZoom: 19
                     })
                 };
 
-                // Set default base map
+                // Set default
                 const hour = new Date().getHours();
-                const defaultBaseKey = (hour >= 7 && hour <= 19) ? 'osm' : 'dark';
-                this.currentBaseMap = this.baseMaps[defaultBaseKey];
-                this.currentBaseMap.addTo(this.map);
-
-                // Update UI
-                this.updateActiveBasemap(defaultBaseKey);
+                const defaultMap = (hour >= 7 && hour <= 19) ? 'osm' : 'dark';
+                this.currentBase = this.baseMaps[defaultMap];
+                this.currentBase.addTo(this.map);
+                this.updateActiveMap(defaultMap);
 
                 // Add controls
-                this.addCustomControls();
+                L.control.zoom({ position: 'topleft' }).addTo(this.map);
+                L.control.scale({ position: 'bottomleft' }).addTo(this.map);
 
-                // Add event listeners for map events
-                this.map.on('zoomend moveend', () => this.updateMapStats());
+                // Home button
+                const homeBtn = L.control({ position: 'topright' });
+                homeBtn.onAdd = () => {
+                    const div = L.DomUtil.create('div', 'leaflet-control-custom');
+                    div.innerHTML = '🏠';
+                    div.title = "Ir al inicio";
+                    div.onclick = () => this.goHome();
+                    return div;
+                };
+                homeBtn.addTo(this.map);
+
+                // Update zoom display
+                this.map.on('zoomend', () => {
+                    document.getElementById('zoom').textContent = this.map.getZoom();
+                });
             }
 
             async loadData() {
@@ -618,47 +466,30 @@
                     const response = await fetch('https://raw.githubusercontent.com/Sud-Austral/leaflet_base/refs/heads/main/data/Malla_SanMiguel.json');
                     
                     if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
+                        throw new Error('Error de red');
                     }
                     
-                    this.geoJsonData = await response.json();
-                    this.processGeoJsonData();
+                    const data = await response.json();
+                    this.processData(data);
                     
                 } catch (error) {
-                    console.error('Error loading data:', error);
-                    this.showError('Error al cargar los datos. Verifique su conexión.');
+                    console.error('Error:', error);
+                    this.showError();
                 }
             }
 
-            processGeoJsonData() {
-                // Create marker cluster group with custom options
-                this.markerCluster = L.markerClusterGroup({
-                    chunkedLoading: true,
-                    chunkProgress: this.updateLoadingProgress.bind(this),
-                    maxClusterRadius: 80,
-                    spiderfyOnMaxZoom: true,
-                    showCoverageOnHover: false,
-                    zoomToBoundsOnClick: true,
-                    iconCreateFunction: (cluster) => {
-                        const count = cluster.getChildCount();
-                        let className = 'marker-cluster-small';
-                        
-                        if (count > 100) className = 'marker-cluster-large';
-                        else if (count > 50) className = 'marker-cluster-medium';
-                        
-                        return new L.DivIcon({
-                            html: `<div><span>${count}</span></div>`,
-                            className: `marker-cluster ${className}`,
-                            iconSize: new L.Point(40, 40)
-                        });
-                    }
+            processData(data) {
+                // Create cluster
+                this.cluster = L.markerClusterGroup({
+                    maxClusterRadius: 50,
+                    showCoverageOnHover: false
                 });
 
-                // Process GeoJSON layer
-                const geoJsonLayer = L.geoJSON(this.geoJsonData, {
+                // Create markers
+                const layer = L.geoJSON(data, {
                     pointToLayer: (feature, latlng) => {
                         return L.circleMarker(latlng, {
-                            radius: 8,
+                            radius: 6,
                             fillColor: '#667eea',
                             color: '#fff',
                             weight: 2,
@@ -668,186 +499,100 @@
                     },
                     onEachFeature: (feature, layer) => {
                         if (feature.properties) {
-                            const popup = this.createEnhancedPopup(feature.properties);
-                            layer.bindPopup(popup, {
-                                maxWidth: 300,
-                                className: 'enhanced-popup'
-                            });
+                            layer.bindPopup(this.createPopup(feature.properties));
                         }
                     }
                 });
 
-                // Add to cluster and map
-                this.markerCluster.addLayer(geoJsonLayer);
-                this.map.addLayer(this.markerCluster);
+                this.cluster.addLayer(layer);
+                this.map.addLayer(this.cluster);
 
                 // Update stats
-                this.stats.pointCount = geoJsonLayer.getLayers().length;
-                this.updateStats();
+                this.pointCount = layer.getLayers().length;
+                document.getElementById('pointCount').textContent = this.pointCount.toLocaleString();
 
                 // Fit bounds
-                if (geoJsonLayer.getBounds().isValid()) {
-                    this.map.fitBounds(geoJsonLayer.getBounds(), { padding: [20, 20] });
+                if (layer.getBounds().isValid()) {
+                    this.map.fitBounds(layer.getBounds(), { padding: [20, 20] });
                 }
             }
 
-            createEnhancedPopup(properties) {
-                const title = properties.name || properties.NAME || properties.id || 'Información del Punto';
-                const subtitle = properties.tipo || properties.type || 'Malla San Miguel';
+            createPopup(props) {
+                const title = props.name || props.NAME || props.id || 'Punto de Datos';
                 
                 let content = `
-                    <div class="popup-content">
+                    <div>
                         <div class="popup-header">
                             <div class="popup-title">${title}</div>
-                            <div class="popup-subtitle">${subtitle}</div>
                         </div>
                 `;
 
-                // Important properties first
-                const importantKeys = ['id', 'name', 'tipo', 'estado', 'categoria'];
-                const shownKeys = new Set();
-
-                importantKeys.forEach(key => {
-                    if (properties[key] && !shownKeys.has(key)) {
+                // Show important properties
+                const important = ['id', 'name', 'tipo', 'estado'];
+                important.forEach(key => {
+                    if (props[key]) {
                         content += `
                             <div class="popup-property">
-                                <span class="popup-key">${this.formatKey(key)}:</span>
-                                <span class="popup-value">${properties[key]}</span>
+                                <span class="popup-key">${key}:</span>
+                                <span>${props[key]}</span>
                             </div>
                         `;
-                        shownKeys.add(key);
                     }
                 });
-
-                // Collect other properties
-                const otherProps = Object.keys(properties)
-                    .filter(key => !shownKeys.has(key) && properties[key] !== null && properties[key] !== undefined && properties[key] !== '')
-                    .slice(0, 10); // Limit to prevent overly long popups
-
-                if (otherProps.length > 0) {
-                    content += `
-                        <button class="details-toggle" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'; this.textContent = this.textContent === 'Ver más detalles' ? 'Ocultar detalles' : 'Ver más detalles'">
-                            Ver más detalles
-                        </button>
-                        <div style="display: none;">
-                    `;
-                    
-                    otherProps.forEach(key => {
-                        content += `
-                            <div class="popup-property">
-                                <span class="popup-key">${this.formatKey(key)}:</span>
-                                <span class="popup-value">${properties[key]}</span>
-                            </div>
-                        `;
-                    });
-                    
-                    content += '</div>';
-                }
 
                 content += '</div>';
                 return content;
             }
 
-            formatKey(key) {
-                return key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' ');
-            }
-
-            setupEventListeners() {
-                // Basemap selection
-                document.querySelectorAll('.basemap-option').forEach(option => {
-                    option.addEventListener('click', (e) => {
-                        const basemap = e.currentTarget.dataset.basemap;
-                        this.changeBasemap(basemap);
+            setupEvents() {
+                // Map selection
+                document.querySelectorAll('.basemap-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const mapType = e.target.dataset.map;
+                        this.changeMap(mapType);
                     });
                 });
-
-                // Update floating stats when map moves
-                this.map.on('zoomend moveend', () => {
-                    this.updateMapStats();
-                });
-
-                // Show floating stats on map interaction
-                this.map.on('zoomstart movestart', () => {
-                    document.getElementById('floatingStats').classList.add('visible');
-                });
-
-                // Hide floating stats after interaction
-                let hideStatsTimeout;
-                this.map.on('zoomend moveend', () => {
-                    clearTimeout(hideStatsTimeout);
-                    hideStatsTimeout = setTimeout(() => {
-                        document.getElementById('floatingStats').classList.remove('visible');
-                    }, 2000);
-                });
             }
 
-            changeBasemap(basemapKey) {
-                if (this.currentBaseMap) {
-                    this.map.removeLayer(this.currentBaseMap);
+            changeMap(mapType) {
+                if (this.currentBase) {
+                    this.map.removeLayer(this.currentBase);
                 }
                 
-                this.currentBaseMap = this.baseMaps[basemapKey];
-                this.currentBaseMap.addTo(this.map);
-                
-                this.updateActiveBasemap(basemapKey);
+                this.currentBase = this.baseMaps[mapType];
+                this.currentBase.addTo(this.map);
+                this.updateActiveMap(mapType);
             }
 
-            updateActiveBasemap(basemapKey) {
-                document.querySelectorAll('.basemap-option').forEach(option => {
-                    option.classList.remove('active');
+            updateActiveMap(mapType) {
+                document.querySelectorAll('.basemap-btn').forEach(btn => {
+                    btn.classList.remove('active');
                 });
-                
-                document.querySelector(`[data-basemap="${basemapKey}"]`).classList.add('active');
-                document.getElementById(basemapKey).checked = true;
+                document.querySelector(`[data-map="${mapType}"]`).classList.add('active');
             }
 
-            updateStats() {
-                document.getElementById('pointCount').textContent = this.stats.pointCount.toLocaleString();
-                document.getElementById('clusterCount').textContent = this.markerCluster ? 
-                    this.markerCluster.getLayers().length.toLocaleString() : '0';
+            goHome() {
+                if (this.cluster && this.cluster.getBounds().isValid()) {
+                    this.map.fitBounds(this.cluster.getBounds(), { padding: [20, 20] });
+                }
             }
 
-            updateMapStats() {
-                const zoom = this.map.getZoom();
-                const center = this.map.getCenter();
-                
-                document.getElementById('currentZoom').textContent = zoom;
-                document.getElementById('currentCenter').textContent = 
-                    `${center.lat.toFixed(4)}, ${center.lng.toFixed(4)}`;
+            hideLoading() {
+                setTimeout(() => {
+                    document.getElementById('loading').classList.add('hidden');
+                }, 500);
             }
 
-            updateLoadingProgress(processed, total, elapsed) {
-                const progress = Math.round((processed / total) * 100);
-                // Could add a progress bar here if needed
+            showError() {
+                alert('Error al cargar los datos. Por favor, recarga la página.');
+                this.hideLoading();
             }
+        }
 
-            addCustomControls() {
-                // Zoom control
-                L.control.zoom({ position: 'topleft' }).addTo(this.map);
-                
-                // Scale control
-                L.control.scale({ position: 'bottomleft' }).addTo(this.map);
-
-                // Home button
-                const homeButton = L.control({ position: 'topright' });
-                homeButton.onAdd = () => {
-                    const div = L.DomUtil.create('div', 'leaflet-control-custom');
-                    div.innerHTML = '🏠';
-                    div.title = "Centrar mapa";
-                    div.onclick = () => {
-                        if (this.markerCluster && this.markerCluster.getBounds().isValid()) {
-                            this.map.fitBounds(this.markerCluster.getBounds(), { padding: [20, 20] });
-                        }
-                    };
-                    return div;
-                };
-                homeButton.addTo(this.map);
-
-                // Fullscreen button
-                const fullscreenButton = L.control({ position: 'topright' });
-                fullscreenButton.onAdd = () => {
-                    const div = L.DomUtil.create('div', 'leaflet-control-custom');
-                    div.innerHTML = '⛶';
-                    div.title = "Pantalla completa";
-                    div.onclick = () => {
-                        if (
+        // Initialize app when DOM is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            new MapApp();
+        });
+    </script>
+</body>
+</html>
