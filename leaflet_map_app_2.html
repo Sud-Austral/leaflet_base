@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa Interactivo Mejorado - Malla San Miguel</title>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css" />
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            height: 100vh;
+            display: flex;
+        }
+
+        #map {
+            flex: 1;
+            height: 100vh;
+        }
+
+        #sidebar {
+            width: 300px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            box-shadow: -2px 0 10px rgba(0,0,0,0.1);
+            overflow-y: auto;
+        }
+
+        .sidebar-title {
+            font-size: 1.5em;
+            font-weight: bold;
+            margin-bottom: 20px;
+            text-align: center;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .basemap-section, .info-section {
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .basemap-section h3, .info-section h3 {
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+
+        .basemap-option {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            padding: 8px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .basemap-option:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .basemap-option input[type="radio"] {
+            margin-right: 10px;
+            scale: 1.2;
+        }
+
+        .basemap-option label {
+            cursor: pointer;
+            flex: 1;
+        }
+
+        .leaflet-popup-content-wrapper {
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+
+        .popup-content {
+            max-width: 300px;
+        }
+
+        .popup-title {
+            font-weight: bold;
+            font-size: 1.1em;
+            color: #333;
+            margin-bottom: 10px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .popup-property {
+            margin: 5px 0;
+        }
+
+        details summary {
+            cursor: pointer;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        .leaflet-control-custom {
+            background-color: white;
+            width: 34px;
+            height: 34px;
+            text-align: center;
+            line-height: 34px;
+            font-size: 20px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                flex-direction: column;
+            }
+            #sidebar {
+                width: 100%;
+                height: auto;
+                max-height: 40vh;
+            }
+            #map {
+                height: 60vh;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+
+    <div id="sidebar">
+        <div class="sidebar-title">🗺️ Control de Mapa</div>
+        <div class="basemap-section">
+            <h3>📍 Mapas Base</h3>
+            <div class="basemap-option"><input type="radio" id="osm" name="basemap" value="osm" checked><label for="osm">OpenStreetMap</label></div>
+            <div class="basemap-option"><input type="radio" id="satellite" name="basemap" value="satellite"><label for="satellite">Satélite</label></div>
+            <div class="basemap-option"><input type="radio" id="terrain" name="basemap" value="terrain"><label for="terrain">Terreno</label></div>
+            <div class="basemap-option"><input type="radio" id="dark" name="basemap" value="dark"><label for="dark">Modo Oscuro</label></div>
+            <div class="basemap-option"><input type="radio" id="watercolor" name="basemap" value="watercolor"><label for="watercolor">Acuarela</label></div>
+        </div>
+        <div class="info-section">
+            <h3>ℹ️ Información</h3>
+            <p><strong>Datos:</strong> Malla San Miguel</p>
+            <p><strong>Fuente:</strong> GitHub Sud-Austral</p>
+            <p><strong>Funciones:</strong></p>
+            <ul>
+                <li>Click en puntos para ver propiedades</li>
+                <li>Cambio de mapa base</li>
+                <li>Navegación interactiva</li>
+                <li>Clustering de puntos</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
+
+    <script>
+        const map = L.map('map').setView([-33.45, -70.65], 10);
+
+        const baseMaps = {
+            osm: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors', maxZoom: 19
+            }),
+            satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: '© Esri, Maxar, Earthstar Geographics', maxZoom: 19
+            }),
+            terrain: L.tileLayer('https://stamen-tiles-{s}.a.ssl.fastly.net/terrain/{z}/{x}/{y}.png', {
+                attribution: '© Stamen Design, © OpenStreetMap contributors', maxZoom: 18
+            }),
+            dark: L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '© CARTO, © OpenStreetMap contributors', maxZoom: 19
+            }),
+            watercolor: L.tileLayer('https://stamen-tiles-{s}.a.ssl.fastly.net/watercolor/{z}/{x}/{y}.png', {
+                attribution: '© Stamen Design, © OpenStreetMap contributors', maxZoom: 16
+            })
+        };
+
+        // Modo día/noche automático
+        const hour = new Date().getHours();
+        const defaultBase = (hour >= 7 && hour <= 19) ? baseMaps.osm : baseMaps.dark;
+        let currentBaseMap = defaultBase;
+        currentBaseMap.addTo(map);
+
+        document.querySelectorAll('input[name="basemap"]').forEach(radio => {
+            radio.addEventListener('change', function() {
+                if (this.checked) {
+                    map.removeLayer(currentBaseMap);
+                    currentBaseMap = baseMaps[this.value];
+                    currentBaseMap.addTo(map);
+                }
+            });
+        });
+
+        function createPopupContent(properties) {
+            const title = properties.name || properties.NAME || properties.id || 'Información';
+            let content = `<div class="popup-content"><div class="popup-title">${title}</div>`;
+            const keysImportantes = ['id', 'name', 'tipo', 'estado'];
+            keysImportantes.forEach(k => {
+                if (properties[k]) {
+                    content += `<div class="popup-property"><strong>${k}:</strong> ${properties[k]}</div>`;
+                }
+            });
+            content += `<details><summary>Ver más</summary>`;
+            Object.keys(properties).forEach(key => {
+                if (!keysImportantes.includes(key)) {
+                    const value = properties[key];
+                    if (value !== null && value !== undefined && value !== '') {
+                        content += `<div class="popup-property"><strong>${key}:</strong> ${value}</div>`;
+                    }
+                }
+            });
+            content += `</details></div>`;
+            return content;
+        }
+
+        async function loadGeoJSONData() {
+            try {
+                const res = await fetch('https://raw.githubusercontent.com/Sud-Austral/leaflet_base/refs/heads/main/data/Malla_SanMiguel.json');
+                if (!res.ok) throw new Error('No se pudo cargar GeoJSON');
+                const data = await res.json();
+
+                const markerCluster = L.markerClusterGroup();
+
+                const geoJsonLayer = L.geoJSON(data, {
+                    pointToLayer: (feature, latlng) => {
+                        return L.circleMarker(latlng, {
+                            radius: 8, fillColor: '#667eea', color: '#fff', weight: 2,
+                            opacity: 1, fillOpacity: 0.8
+                        });
+                    },
+                    onEachFeature: function(feature, layer) {
+                        if (feature.properties) {
+                            const popup = createPopupContent(feature.properties);
+                            layer.bindPopup(popup);
+                        }
+                    }
+                });
+
+                markerCluster.addLayer(geoJsonLayer);
+                map.addLayer(markerCluster);
+
+                if (geoJsonLayer.getBounds().isValid()) {
+                    map.fitBounds(geoJsonLayer.getBounds(), { padding: [20, 20] });
+                }
+
+            } catch (err) {
+                console.error(err);
+                alert('Error al cargar los datos. Verifique su conexión.');
+            }
+        }
+
+        loadGeoJSONData();
+
+        L.control.zoom({ position: 'topleft' }).addTo(map);
+        L.control.scale({ position: 'bottomleft' }).addTo(map);
+
+        const homeButton = L.control({position: 'topright'});
+        homeButton.onAdd = () => {
+            const div = L.DomUtil.create('div', 'leaflet-control-custom');
+            div.innerHTML = '📍';
+            div.title = "Centrar mapa";
+            div.onclick = () => {
+                if (map.getBounds().isValid()) {
+                    map.fitBounds(map.getBounds(), { padding: [20, 20] });
+                }
+            };
+            return div;
+        };
+        homeButton.addTo(map);
+    </script>
+</body>
+</html>
