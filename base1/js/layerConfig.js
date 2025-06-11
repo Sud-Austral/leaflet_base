@@ -23,9 +23,39 @@ const layerConfigs = {
         color: '#e14c3c',
         icon: '🚀'
     },
-    malla2: {
-        url: 'https://raw.githubusercontent.com/Sud-Austral/leaflet_base/refs/heads/main/data/Malla_SanMiguel.json',
-        name: 'Malla San Miguel',
+    geometrycollection: {
+        url: 'https://raw.githubusercontent.com/Sud-Austral/leaflet_base/refs/heads/main/data/geometrycollection_example.json',
+        name: 'geometrycollection',
+        color: '#34f8db',
+        icon: '📍'
+    },
+    linestring: {
+        url: 'https://raw.githubusercontent.com/Sud-Austral/leaflet_base/refs/heads/main/data/linestring_example.json',
+        name: 'linestring',
+        color: '#34f8db',
+        icon: '📍'
+    },
+    multilinestring: {
+        url: 'https://raw.githubusercontent.com/Sud-Austral/leaflet_base/refs/heads/main/data/multilinestring_example.json',
+        name: 'multilinestring',
+        color: '#34f8db',
+        icon: '📍'
+    },
+    multiPoint: {
+        url: 'https://raw.githubusercontent.com/Sud-Austral/leaflet_base/refs/heads/main/data/multiPoint.json',
+        name: 'multiPoint',
+        color: '#34f8db',
+        icon: '📍'
+    },
+    multipolygon: {
+        url: 'https://raw.githubusercontent.com/Sud-Austral/leaflet_base/refs/heads/main/data/multipolygon_example.json',
+        name: 'multipolygon',
+        color: '#34f8db',
+        icon: '📍'
+    },
+    polygon: {
+        url: 'https://raw.githubusercontent.com/Sud-Austral/leaflet_base/refs/heads/main/data/polygon_example.json',
+        name: 'polygon',
         color: '#34f8db',
         icon: '📍'
     }

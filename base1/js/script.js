@@ -3,7 +3,10 @@ class MapApp {
         this.map = null;
         this.currentBaseLayer = null;
         this.currentDataLayer = null;
+        
         this.markerCluster = null;
+        this.lineLayerGroup = null;   
+
         this.dataCache = {};
         this.currentLayerKey = null;
         this.allMarkers = {};
@@ -12,7 +15,8 @@ class MapApp {
         this.sidebarVisible = true;
         this.uniqueValuesCache = {}; // Cache para valores únicos        
         // Configuración inicial de capas
-        this.layerConfigs = layerConfigs;        
+        this.layerConfigs = layerConfigs;     
+        
         this.init();
     }
 
@@ -230,224 +234,549 @@ class MapApp {
 
     }
 
-    multiPointLayer(config, data, layerKey) {
-        if (!data || !config) return;
-        
-        // Limpiar capa existente
-        this.clearExistingLayer(layerKey);
-
-        // Configurar cluster
-        this.markerCluster = L.markerClusterGroup({ /* ... configuracion ... */ });
-        
-        // Contadores y almacenamiento
-        this.allMarkers[layerKey] = [];
-        this.filteredMarkers[layerKey] = [];
-        const newProperties = new Set();
-        let featureCount = 0;
-
-        data.features.forEach(feature => {
-            const processPoint = coords => {
-                const [lng, lat] = coords;
-                if (!isNaN(lat) && !isNaN(lng)) {
-                    const marker = L.circleMarker([lat, lng], { /* ... estilo ... */ });
-                    this.setupFeature(marker, feature, config, newProperties);
-                    this.markerCluster.addLayer(marker);
-                    this.allMarkers[layerKey].push(marker);
-                    featureCount++;
-                }
-            };
-
-            if (feature.geometry.type === 'Point') {
-                processPoint(feature.geometry.coordinates);
-            } 
-            else if (feature.geometry.type === 'MultiPoint') {
-                feature.geometry.coordinates.forEach(processPoint);
-            }
-        });
-
-        this.map.addLayer(this.markerCluster);
-        this.finalizeLayer(config, layerKey, featureCount, newProperties);
-    }
-
-
-    // 2. Líneas y Multilíneas
-    lineStringLayer(config, data, layerKey) {
-        if (!data || !config) return;
-        this.clearExistingLayer(layerKey);
-        
-        const layerGroup = L.layerGroup();
-        const newProperties = new Set();
-        let featureCount = 0;
-
-        data.features.forEach(feature => {
-            const createLine = coords => {
-                const latLngs = coords.map(([lng, lat]) => [lat, lng]);
-                const line = L.polyline(latLngs, {
-                    color: config.color,
-                    weight: 4,
-                    opacity: 0.7
-                });
-                
-                this.setupFeature(line, feature, config, newProperties);
-                layerGroup.addLayer(line);
-                featureCount++;
-            };
-
-            if (feature.geometry.type === 'LineString') {
-                createLine(feature.geometry.coordinates);
-            } 
-            else if (feature.geometry.type === 'MultiLineString') {
-                feature.geometry.coordinates.forEach(createLine);
-            }
-        });
-
-        this.map.addLayer(layerGroup);
-        this.layers[layerKey] = layerGroup;  // Almacenar referencia
-        this.finalizeLayer(config, layerKey, featureCount, newProperties);
-    }
-
-    // 3. Polígonos y Multipolígonos
-    polygonLayer(config, data, layerKey) {
-        if (!data || !config) return;
-        this.clearExistingLayer(layerKey);
-        
-        const layerGroup = L.layerGroup();
-        const newProperties = new Set();
-        let featureCount = 0;
-
-        data.features.forEach(feature => {
-            const createPolygon = coords => {
-                const latLngs = coords.map(ring => 
-                    ring.map(([lng, lat]) => [lat, lng])
-                );
-                
-                const polygon = L.polygon(latLngs, {
-                    fillColor: config.color,
-                    color: '#3388ff',
-                    weight: 2,
-                    fillOpacity: 0.5
-                });
-                
-                this.setupFeature(polygon, feature, config, newProperties);
-                layerGroup.addLayer(polygon);
-                featureCount++;
-            };
-
-            if (feature.geometry.type === 'Polygon') {
-                createPolygon(feature.geometry.coordinates);
-            } 
-            else if (feature.geometry.type === 'MultiPolygon') {
-                feature.geometry.coordinates.forEach(createPolygon);
-            }
-        });
-
-        this.map.addLayer(layerGroup);
-        this.layers[layerKey] = layerGroup;
-        this.finalizeLayer(config, layerKey, featureCount, newProperties);
-    }
-
-    // 4. Colecciones de geometrías
     geometryCollectionLayer(config, data, layerKey) {
         if (!data || !config) return;
-        this.clearExistingLayer(layerKey);
-        
-        const collectionGroup = L.layerGroup();
-        const newProperties = new Set();
-        let featureCount = 0;
 
-        data.features.forEach(feature => {
-            if (feature.geometry.type === 'GeometryCollection') {
-                feature.geometry.geometries.forEach(geom => {
-                    let layer = null;
-                    
-                    switch (geom.type) {
-                        case 'Point':
-                            const [lng, lat] = geom.coordinates;
-                            layer = L.circleMarker([lat, lng], { /* ... estilo ... */ });
-                            break;
-                            
-                        case 'LineString':
-                            const latLngs = geom.coordinates.map(([lng, lat]) => [lat, lng]);
-                            layer = L.polyline(latLngs, { color: config.color });
-                            break;
-                            
-                        case 'Polygon':
-                            const rings = geom.coordinates.map(ring => 
-                                ring.map(([lng, lat]) => [lat, lng])
-                            );
-                            layer = L.polygon(rings, { fillColor: config.color });
-                            break;
-                    }
-                    
-                    if (layer) {
-                        this.setupFeature(layer, feature, config, newProperties);
-                        collectionGroup.addLayer(layer);
-                        featureCount++;
-                    }
+        // Remove existing data layer
+        if (this.markerCluster) {
+            this.map.removeLayer(this.markerCluster);
+        }
+        
+
+        // Create new marker cluster
+        this.markerCluster = L.markerClusterGroup({
+            maxClusterRadius: 50,
+            showCoverageOnHover: false,
+            spiderfyOnMaxZoom: true,
+            iconCreateFunction: function (cluster) {
+                return L.divIcon({
+                    html: `<div style="background: ${config.color}; color: white; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-weight: bold; box-shadow: 0 3px 10px rgba(0,0,0,0.2);">${cluster.getChildCount()}</div>`,
+                    className: '',
+                    iconSize: [40, 40]
                 });
             }
         });
 
-        this.map.addLayer(collectionGroup);
-        this.layers[layerKey] = collectionGroup;
-        this.finalizeLayer(config, layerKey, featureCount, newProperties);
-    }
+        // Reset markers and properties
+        this.allMarkers[layerKey] = [];
+        this.filteredMarkers[layerKey] = [];
+        this.availableProperties.clear();
 
-    // ----- Funciones auxiliares ----- //
+        let pointCount = 0;
 
-    // Limpiar capa existente
-    clearExistingLayer(layerKey) {
-        if (this.layers[layerKey]) {
-            this.map.removeLayer(this.layers[layerKey]);
-            delete this.layers[layerKey];
-        }
-        if (this.markerCluster) {
-            this.map.removeLayer(this.markerCluster);
-            this.markerCluster = null;
-        }
-    }
+        // Process GeoJSON data
+        if (data.type === 'FeatureCollection' && data.features) {
+            data.features.forEach(feature => {
+                if (!feature.geometry) return;
 
-    // Configurar características comunes
-    setupFeature(layer, feature, config, propertiesSet) {
-        layer.feature = feature;
-        if (feature.properties) {
-            layer.bindPopup(this.createPopup(feature.properties, config.name));
-            Object.keys(feature.properties).forEach(prop => {
-                propertiesSet.add(prop);
-                this.availableProperties.add(prop);
+                const geometries = feature.geometry.type === 'GeometryCollection'
+                    ? feature.geometry.geometries
+                    : [feature.geometry];
+
+                geometries.forEach(geometry => {
+                    if (geometry.type === 'Point' && Array.isArray(geometry.coordinates)) {
+                        const [lng, lat] = geometry.coordinates;
+
+                        if (!isNaN(lat) && !isNaN(lng)) {
+                            const marker = L.circleMarker([lat, lng], {
+                                radius: 7,
+                                fillColor: config.color,
+                                color: '#fff',
+                                weight: 2,
+                                opacity: 1,
+                                fillOpacity: 0.9
+                            });
+
+                            // Store feature properties in marker
+                            marker.feature = feature;
+
+                            // Add popup if properties exist
+                            if (feature.properties) {
+                                marker.bindPopup(this.createPopup(feature.properties, config.name));
+                                Object.keys(feature.properties).forEach(prop => {
+                                    this.availableProperties.add(prop);
+                                });
+                            }
+
+                            this.markerCluster.addLayer(marker);
+                            this.allMarkers[layerKey].push(marker);
+                            pointCount++;
+                        }
+                    }
+                });
             });
         }
-    }
 
-    // Finalizar carga de capa
-    finalizeLayer(config, layerKey, featureCount, newProperties) {
-        // Actualizar UI
-        document.getElementById('featureCount').textContent = featureCount.toLocaleString();
+        // Add cluster to map
+        this.map.addLayer(this.markerCluster);
+
+        // Update UI
+        this.currentLayerKey = layerKey;
+        document.getElementById('pointCount').textContent = pointCount.toLocaleString();
         document.getElementById('current-layer-name').textContent = config.name;
-        
-        // Actualizar selectores de propiedades
+        this.updateActiveButton('[data-layer]', layerKey);
+
+        // Update property selectors
         this.updatePropertySelectors();
-        
-        // Ajustar vista
-        if (this.layers[layerKey].getBounds) {
+
+        // Reset selection filter
+        this.resetSelectFilter();
+
+        // Fit to bounds if any point was added
+        if (this.markerCluster.getLayers().length > 0) {
             setTimeout(() => {
-                this.map.fitBounds(this.layers[layerKey].getBounds(), { 
-                    padding: [50, 50],
-                    maxZoom: 12
-                });
+                this.map.fitBounds(this.markerCluster.getBounds(), { padding: [50, 50] });
             }, 100);
         }
     }
 
+    lineStringLayer(config, data, layerKey) {
+        if (!data || !config) return;
+
+        // Remove existing layer
+        if (this.lineLayerGroup) {
+            this.map.removeLayer(this.lineLayerGroup);
+        }
+
+        // Create new layer group
+        this.lineLayerGroup = L.featureGroup();
+
+
+        // Reset storage and properties
+        this.allMarkers[layerKey] = [];
+        this.filteredMarkers[layerKey] = [];
+        this.availableProperties.clear();
+
+        let lineCount = 0;
+
+        // Process GeoJSON data
+        if (data.type === 'FeatureCollection' && Array.isArray(data.features)) {
+            data.features.forEach(feature => {
+                const geometry = feature.geometry;
+                if (!geometry || geometry.type !== 'LineString') return;
+
+                const coordinates = geometry.coordinates;
+                if (!Array.isArray(coordinates) || coordinates.length < 2) return;
+
+                // Convert to Leaflet LatLngs
+                const latLngs = coordinates.map(coord => [coord[1], coord[0]]);
+
+                const polyline = L.polyline(latLngs, {
+                    color: config.color || '#3388ff',
+                    weight: 4,
+                    opacity: 0.8
+                });
+
+                polyline.feature = feature;
+
+                // Bind popup if properties exist
+                if (feature.properties) {
+                    polyline.bindPopup(this.createPopup(feature.properties, config.name));
+                    Object.keys(feature.properties).forEach(prop => {
+                        this.availableProperties.add(prop);
+                    });
+                }
+
+                this.lineLayerGroup.addLayer(polyline);
+                this.allMarkers[layerKey].push(polyline);
+                lineCount++;
+            });
+        }
+
+        // Add group to map
+        this.map.addLayer(this.lineLayerGroup);
+
+        // Update UI
+        this.currentLayerKey = layerKey;
+        document.getElementById('pointCount').textContent = lineCount.toLocaleString();
+        document.getElementById('current-layer-name').textContent = config.name;
+        this.updateActiveButton('[data-layer]', layerKey);
+
+        // Update property selectors
+        this.updatePropertySelectors();
+
+        // Reset selection filter
+        this.resetSelectFilter();
+
+        // Fit bounds
+        if (this.lineLayerGroup.getLayers().length > 0) {
+            setTimeout(() => {
+                this.map.fitBounds(this.lineLayerGroup.getBounds(), { padding: [50, 50] });
+            }, 100);
+        }
+    }
+
+    multiLineStringLayer(config, data, layerKey) {
+        if (!data || !config) return;
+
+        // Remove existing layer
+        if (this.multiLineLayerGroup) {
+            this.map.removeLayer(this.multiLineLayerGroup);
+        }
+
+        // Create a new feature group
+        this.multiLineLayerGroup = L.featureGroup();
+
+        // Reset storage and properties
+        this.allMarkers[layerKey] = [];
+        this.filteredMarkers[layerKey] = [];
+        this.availableProperties.clear();
+
+        let multiLineCount = 0;
+
+        // Process GeoJSON data
+        if (data.type === 'FeatureCollection' && Array.isArray(data.features)) {
+            data.features.forEach(feature => {
+                const geometry = feature.geometry;
+                if (!geometry || geometry.type !== 'MultiLineString') return;
+
+                const multiLineCoords = geometry.coordinates;
+                if (!Array.isArray(multiLineCoords) || multiLineCoords.length === 0) return;
+
+                multiLineCoords.forEach(lineCoords => {
+                    const latLngs = lineCoords.map(coord => [coord[1], coord[0]]); // [lat, lng]
+
+                    const polyline = L.polyline(latLngs, {
+                        color: config.color || '#ff6600',
+                        weight: 4,
+                        opacity: 0.8
+                    });
+
+                    polyline.feature = feature;
+
+                    // Bind popup if properties exist
+                    if (feature.properties) {
+                        polyline.bindPopup(this.createPopup(feature.properties, config.name));
+                        Object.keys(feature.properties).forEach(prop => {
+                            this.availableProperties.add(prop);
+                        });
+                    }
+
+                    this.multiLineLayerGroup.addLayer(polyline);
+                    this.allMarkers[layerKey].push(polyline);
+                    multiLineCount++;
+                });
+            });
+        }
+
+        // Add to map
+        this.map.addLayer(this.multiLineLayerGroup);
+
+        // Update UI
+        this.currentLayerKey = layerKey;
+        document.getElementById('pointCount').textContent = multiLineCount.toLocaleString();
+        document.getElementById('current-layer-name').textContent = config.name;
+        this.updateActiveButton('[data-layer]', layerKey);
+
+        // Update property selectors
+        this.updatePropertySelectors();
+
+        // Reset selection filter
+        this.resetSelectFilter();
+
+        // Fit bounds
+        if (this.multiLineLayerGroup.getLayers().length > 0) {
+            setTimeout(() => {
+                this.map.fitBounds(this.multiLineLayerGroup.getBounds(), { padding: [50, 50] });
+            }, 100);
+        }
+    }
+
+    multiPointLayer(config, data, layerKey) {
+        if (!data || !config) return;
+
+        // Remove existing layer
+        if (this.multiPointLayerGroup) {
+            this.map.removeLayer(this.multiPointLayerGroup);
+        }
+
+        // Crear nuevo cluster group
+        this.multiPointLayerGroup = L.markerClusterGroup({
+            maxClusterRadius: 50,
+            showCoverageOnHover: false,
+            spiderfyOnMaxZoom: true,
+            iconCreateFunction: function (cluster) {
+                return L.divIcon({
+                    html: `<div style="background: ${config.color}; color: white; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-weight: bold; box-shadow: 0 3px 10px rgba(0,0,0,0.2);">${cluster.getChildCount()}</div>`,
+                    className: '',
+                    iconSize: [40, 40]
+                });
+            }
+        });
+
+        // Reset markers and properties
+        this.allMarkers[layerKey] = [];
+        this.filteredMarkers[layerKey] = [];
+        this.availableProperties.clear();
+
+        let pointCount = 0;
+
+        if (data.type === 'FeatureCollection' && Array.isArray(data.features)) {
+            data.features.forEach(feature => {
+                const geometry = feature.geometry;
+                if (!geometry || geometry.type !== 'MultiPoint') return;
+
+                const coordinates = geometry.coordinates;
+                if (!Array.isArray(coordinates)) return;
+
+                coordinates.forEach(coord => {
+                    if (Array.isArray(coord) && coord.length === 2) {
+                        const [lng, lat] = coord;
+
+                        if (!isNaN(lat) && !isNaN(lng)) {
+                            const marker = L.circleMarker([lat, lng], {
+                                radius: 7,
+                                fillColor: config.color,
+                                color: '#fff',
+                                weight: 2,
+                                opacity: 1,
+                                fillOpacity: 0.9
+                            });
+
+                            // Asigna la feature al marker
+                            marker.feature = feature;
+
+                            // Popup si hay propiedades
+                            if (feature.properties) {
+                                marker.bindPopup(this.createPopup(feature.properties, config.name));
+                                Object.keys(feature.properties).forEach(prop => {
+                                    this.availableProperties.add(prop);
+                                });
+                            }
+
+                            this.multiPointLayerGroup.addLayer(marker);
+                            this.allMarkers[layerKey].push(marker);
+                            pointCount++;
+                        }
+                    }
+                });
+            });
+        }
+
+        // Agrega a mapa
+        this.map.addLayer(this.multiPointLayerGroup);
+
+        // Actualiza UI
+        this.currentLayerKey = layerKey;
+        document.getElementById('pointCount').textContent = pointCount.toLocaleString();
+        document.getElementById('current-layer-name').textContent = config.name;
+        this.updateActiveButton('[data-layer]', layerKey);
+
+        // Actualiza selectores
+        this.updatePropertySelectors();
+
+        // Reinicia filtros
+        this.resetSelectFilter();
+
+        // Fit bounds
+        if (this.multiPointLayerGroup.getLayers().length > 0) {
+            setTimeout(() => {
+                this.map.fitBounds(this.multiPointLayerGroup.getBounds(), { padding: [50, 50] });
+            }, 100);
+        }
+    }
+
+    multiPolygonLayer(config, data, layerKey) {
+        if (!data || !config) return;
+
+        // Remove existing layer
+        if (this.multiPolygonLayerGroup) {
+            this.map.removeLayer(this.multiPolygonLayerGroup);
+        }
+
+        // Crear nuevo grupo de features
+        this.multiPolygonLayerGroup = L.featureGroup();
+
+        // Reset datos y propiedades
+        this.allMarkers[layerKey] = [];
+        this.filteredMarkers[layerKey] = [];
+        this.availableProperties.clear();
+
+        let polygonCount = 0;
+
+        if (data.type === 'FeatureCollection' && Array.isArray(data.features)) {
+            data.features.forEach(feature => {
+                const geometry = feature.geometry;
+                if (!geometry || geometry.type !== 'MultiPolygon') return;
+
+                const polygons = geometry.coordinates;
+                if (!Array.isArray(polygons)) return;
+
+                // Convierte a [lat, lng]
+                const latlngs = polygons.map(polygon =>
+                    polygon.map(ring =>
+                        ring.map(coord => [coord[1], coord[0]])
+                    )
+                );
+
+                const polygonLayer = L.polygon(latlngs, {
+                    color: config.color || '#3388ff',
+                    weight: 2,
+                    fillOpacity: 0.5,
+                    opacity: 1
+                });
+
+                polygonLayer.feature = feature;
+
+                // Popup si hay propiedades
+                if (feature.properties) {
+                    polygonLayer.bindPopup(this.createPopup(feature.properties, config.name));
+                    Object.keys(feature.properties).forEach(prop => {
+                        this.availableProperties.add(prop);
+                    });
+                }
+
+                this.multiPolygonLayerGroup.addLayer(polygonLayer);
+                this.allMarkers[layerKey].push(polygonLayer);
+                polygonCount++;
+            });
+        }
+
+        // Añade capa al mapa
+        this.map.addLayer(this.multiPolygonLayerGroup);
+
+        // Actualiza UI
+        this.currentLayerKey = layerKey;
+        document.getElementById('pointCount').textContent = polygonCount.toLocaleString();
+        document.getElementById('current-layer-name').textContent = config.name;
+        this.updateActiveButton('[data-layer]', layerKey);
+
+        // Actualiza selectores
+        this.updatePropertySelectors();
+
+        // Reinicia filtros
+        this.resetSelectFilter();
+
+        // Zoom a los polígonos
+        if (this.multiPolygonLayerGroup.getLayers().length > 0) {
+            setTimeout(() => {
+                this.map.fitBounds(this.multiPolygonLayerGroup.getBounds(), { padding: [50, 50] });
+            }, 100);
+        }
+    }
+
+    polygonLayer(config, data, layerKey) {
+        if (!data || !config) return;
+
+        // Eliminar capa previa si existe
+        if (this.polygonLayerGroup) {
+            this.map.removeLayer(this.polygonLayerGroup);
+        }
+
+        // Crear nuevo grupo de polígonos
+        this.polygonLayerGroup = L.featureGroup();
+
+        // Limpiar referencias anteriores
+        this.allMarkers[layerKey] = [];
+        this.filteredMarkers[layerKey] = [];
+        this.availableProperties.clear();
+
+        let polygonCount = 0;
+
+        if (data.type === 'FeatureCollection' && Array.isArray(data.features)) {
+            data.features.forEach(feature => {
+                const geometry = feature.geometry;
+                if (!geometry || geometry.type !== 'Polygon') return;
+
+                const coordinates = geometry.coordinates;
+                if (!Array.isArray(coordinates)) return;
+
+                // Convertir a [lat, lng]
+                const latlngs = coordinates.map(ring =>
+                    ring.map(coord => [coord[1], coord[0]])
+                );
+
+                const polygonLayer = L.polygon(latlngs, {
+                    color: config.color || '#3388ff',
+                    weight: 2,
+                    fillOpacity: 0.5,
+                    opacity: 1
+                });
+
+                polygonLayer.feature = feature;
+
+                // Popup si hay propiedades
+                if (feature.properties) {
+                    polygonLayer.bindPopup(this.createPopup(feature.properties, config.name));
+                    Object.keys(feature.properties).forEach(prop => {
+                        this.availableProperties.add(prop);
+                    });
+                }
+
+                this.polygonLayerGroup.addLayer(polygonLayer);
+                this.allMarkers[layerKey].push(polygonLayer);
+                polygonCount++;
+            });
+        }
+
+        // Agregar capa al mapa
+        this.map.addLayer(this.polygonLayerGroup);
+
+        // Actualizar interfaz
+        this.currentLayerKey = layerKey;
+        document.getElementById('pointCount').textContent = polygonCount.toLocaleString();
+        document.getElementById('current-layer-name').textContent = config.name;
+        this.updateActiveButton('[data-layer]', layerKey);
+
+        // Actualizar filtros y selectores
+        this.updatePropertySelectors();
+        this.resetSelectFilter();
+
+        // Zoom a los polígonos
+        if (this.polygonLayerGroup.getLayers().length > 0) {
+            setTimeout(() => {
+                this.map.fitBounds(this.polygonLayerGroup.getBounds(), { padding: [50, 50] });
+            }, 100);
+        }
+    }
+
+
+
+
+    
+
     applyLayer(layerKey) {
         const config = this.layerConfigs[layerKey];
-        const data = this.dataCache[layerKey];        
-        if (data?.features?.[0]?.geometry?.type === "Point") {
-            this.pointLayer(config,data,layerKey)
+        const data = this.dataCache[layerKey]; 
+        const tipo = data?.features?.[0]?.geometry?.type;  
+        /* 
+        if (tipo == "Point") {
+            this.pointLayer(config,data,layerKey);
         }
-        console.log(data?.features?.[0]?.geometry?.type)
-        
-        
+        if(tipo == "GeometryCollection"){
+            this.geometryCollectionLayer(config,data,layerKey);
+        }
+        if(tipo == "LineString"){
+            this.lineStringLayer(config,data,layerKey);
+        }
+        if(tipo == "MultiLineString"){
+            this.multiLineStringLayer(config,data,layerKey);
+        }
+        if(tipo == "MultiPoint"){
+            this.multiPointLayer(config,data,layerKey);
+        }
+        if(tipo == "MultiPolygon"){
+            this.multiPolygonLayer(config,data,layerKey);
+        }
+        if(tipo == "Polygon"){
+            this.polygonLayer(config,data,layerKey);
+        }   
+        */
+        const layerHandlers = {
+            Point: 'pointLayer',
+            GeometryCollection: 'geometryCollectionLayer',
+            LineString: 'lineStringLayer',
+            MultiLineString: 'multiLineStringLayer',
+            MultiPoint: 'multiPointLayer',
+            MultiPolygon: 'multiPolygonLayer',
+            Polygon: 'polygonLayer'
+        };
+
+        const handler = layerHandlers[tipo];
+        if (handler && typeof this[handler] === 'function') {
+            this[handler](config, data, layerKey);
+        }
+
     }
 
     updatePropertySelectors() {
