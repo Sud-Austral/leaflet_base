@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa Interactivo Avanzado - Múltiples Capas</title>
+    
+    <!-- Preload critical resources -->
+    <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" as="style">
+    <link rel="preconnect" href="https://raw.githubusercontent.com">
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css" />
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary: #667eea;
+            --secondary: #764ba2;
+            --accent: #ff6b6b;
+            --accent-2: #4ecdc4;
+            --glass-bg: rgba(255, 255, 255, 0.1);
+            --glass-border: rgba(255, 255, 255, 0.2);
+            --text-primary: #ffffff;
+            --text-secondary: rgba(255, 255, 255, 0.8);
+            --shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            --radius: 16px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            height: 100vh;
+            display: flex;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            overflow: hidden;
+        }
+
+        .loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            transition: opacity 0.5s ease;
+        }
+
+        .loading.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top: 3px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        #map {
+            flex: 1;
+            height: 100vh;
+            border-radius: 0 var(--radius) var(--radius) 0;
+            overflow: hidden;
+            box-shadow: var(--shadow);
+        }
+
+        #sidebar {
+            width: 320px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: var(--text-primary);
+            padding: 20px;
+            box-shadow: var(--shadow);
+            overflow-y: auto;
+            backdrop-filter: blur(20px);
+        }
+
+        .sidebar-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .sidebar-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 5px;
+            background: linear-gradient(45deg, #ffffff, #e3f2fd);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .sidebar-subtitle {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .section {
+            background: var(--glass-bg);
+            border-radius: var(--radius);
+            padding: 20px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            transition: var(--transition);
+        }
+
+        .section:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+        }
+
+        .section-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .basemap-grid, .layer-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .layer-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .basemap-btn, .layer-btn {
+            padding: 12px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: var(--transition);
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid transparent;
+            text-align: center;
+            font-size: 0.85rem;
+            font-weight: 500;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .basemap-btn:hover, .layer-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: scale(1.02);
+        }
+
+        .basemap-btn.active {
+            background: var(--accent);
+            border-color: rgba(255, 255, 255, 0.3);
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+        }
+
+        .layer-btn.active {
+            background: var(--accent-2);
+            border-color: rgba(255, 255, 255, 0.3);
+            box-shadow: 0 4px 15px rgba(78, 205, 196, 0.3);
+        }
+
+        .layer-btn.loading {
+            pointer-events: none;
+            opacity: 0.7;
+        }
+
+        .layer-btn.loading::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            right: 10px;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top: 2px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            transform: translateY(-50%);
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .stat {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 1.3rem;
+            font-weight: 700;
+            display: block;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        .features {
+            list-style: none;
+        }
+
+        .feature {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 0;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .feature-icon {
+            width: 16px;
+            height: 16px;
+            background: var(--accent);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+        }
+
+        .current-layer {
+            background: rgba(78, 205, 196, 0.2);
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            text-align: center;
+            margin-top: 10px;
+            border: 1px solid rgba(78, 205, 196, 0.3);
+        }
+
+        /* Enhanced Popup */
+        .leaflet-popup-content-wrapper {
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+        }
+
+        .popup-header {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            padding: 15px;
+            margin: -10px -10px 15px -10px;
+            border-radius: var(--radius) var(--radius) 0 0;
+        }
+
+        .popup-title {
+            font-weight: 600;
+            font-size: 1.1rem;
+            margin: 0;
+        }
+
+        .popup-property {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 0.85rem;
+        }
+
+        .popup-property:last-child {
+            border-bottom: none;
+        }
+
+        .popup-key {
+            font-weight: 500;
+            color: #666;
+        }
+
+        /* Custom Controls */
+        .leaflet-control-custom {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            box-shadow: var(--shadow);
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .leaflet-control-custom:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            body {
+                flex-direction: column;
+            }
+            
+            #sidebar {
+                width: 100%;
+                height: auto;
+                max-height: 45vh;
+                border-radius: 0;
+                padding: 15px;
+            }
+            
+            #map {
+                height: 55vh;
+                border-radius: 0;
+            }
+
+            .basemap-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .layer-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .section {
+            animation: fadeIn 0.6s ease forwards;
+        }
+
+        .section:nth-child(1) { animation-delay: 0.1s; }
+        .section:nth-child(2) { animation-delay: 0.2s; }
+        .section:nth-child(3) { animation-delay: 0.3s; }
+        .section:nth-child(4) { animation-delay: 0.4s; }
+    </style>
+</head>
+<body>
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+    </div>
+
+    <div id="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-title">🗺️ MapView Pro</div>
+            <div class="sidebar-subtitle">Visualización Multicapa</div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">
+                <span>🎨</span>
+                Estilos de Mapa
+            </div>
+            <div class="basemap-grid">
+                <div class="basemap-btn active" data-map="osm">Estándar</div>
+                <div class="basemap-btn" data-map="satellite">Satélite</div>
+                <div class="basemap-btn" data-map="terrain">Terreno</div>
+                <div class="basemap-btn" data-map="dark">Oscuro</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">
+                <span>🗂️</span>
+                Capas de Datos
+            </div>
+            <div class="layer-grid">
+                <div class="layer-btn active" data-layer="malla">
+                    📍 Malla San Miguel
+                </div>
+                <div class="layer-btn" data-layer="segunda">
+                    🎯 Segunda Base
+                </div>
+            </div>
+            <div class="current-layer">
+                Capa activa: <span id="current-layer-name">Malla San Miguel</span>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">
+                <span>📊</span>
+                Estadísticas
+            </div>
+            <div class="stats">
+                <div class="stat">
+                    <span class="stat-number" id="pointCount">-</span>
+                    <span class="stat-label">Puntos</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-number" id="zoom">-</span>
+                    <span class="stat-label">Zoom</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">
+                <span>⚡</span>
+                Características
+            </div>
+            <ul class="features">
+                <li class="feature">
+                    <span class="feature-icon">✓</span>
+                    Múltiples capas de datos
+                </li>
+                <li class="feature">
+                    <span class="feature-icon">✓</span>
+                    Clustering inteligente
+                </li>
+                <li class="feature">
+                    <span class="feature-icon">✓</span>
+                    Popups mejorados
+                </li>
+                <li class="feature">
+                    <span class="feature-icon">✓</span>
+                    Múltiples mapas base
+                </li>
+                <li class="feature">
+                    <span class="feature-icon">✓</span>
+                    Diseño responsivo
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <div id="map"></div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
+
+    <script>
+        // App Class
+        class MapApp {
+            constructor() {
+                this.map = null;
+                this.currentBase = null;
+                this.currentLayer = null;
+                this.cluster = null;
+                this.pointCount = 0;
+                this.layerData = {};
+                this.currentLayerName = 'malla';
+                
+                // Layer configurations
+                this.layerConfigs = {
+                    malla: {
+                        url: 'https://raw.githubusercontent.com/Sud-Austral/leaflet_base/refs/heads/main/data/Malla_SanMiguel.json',
+                        name: 'Malla San Miguel',
+                        color: '#667eea',
+                        icon: '📍'
+                    },
+                    segunda: {
+                        url: 'https://raw.githubusercontent.com/Sud-Austral/leaflet_base/refs/heads/main/data/segunda_base.json',
+                        name: 'Segunda Base',
+                        color: '#4ecdc4',
+                        icon: '🎯'
+                    }
+                };
+                
+                this.init();
+            }
+
+            async init() {
+                this.initMap();
+                await this.loadInitialData();
+                this.setupEvents();
+                this.hideLoading();
+            }
+
+            initMap() {
+                // Create map
+                this.map = L.map('map').setView([-33.45, -70.65], 10);
+
+                // Base maps
+                this.baseMaps = {
+                    osm: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '© OpenStreetMap',
+                        maxZoom: 19
+                    }),
+                    satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                        attribution: '© Esri',
+                        maxZoom: 19
+                    }),
+                    terrain: L.tileLayer('https://stamen-tiles-{s}.a.ssl.fastly.net/terrain/{z}/{x}/{y}.png', {
+                        attribution: '© Stamen Design',
+                        maxZoom: 18
+                    }),
+                    dark: L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                        attribution: '© CARTO',
+                        maxZoom: 19
+                    })
+                };
+
+                // Set default based on time of day
+                const hour = new Date().getHours();
+                const defaultMap = (hour >= 7 && hour <= 19) ? 'osm' : 'dark';
+                this.currentBase = this.baseMaps[defaultMap];
+                this.currentBase.addTo(this.map);
+                this.updateActiveMap(defaultMap);
+
+                // Add controls
+                L.control.zoom({ position: 'topleft' }).addTo(this.map);
+                L.control.scale({ position: 'bottomleft' }).addTo(this.map);
+
+                // Home button
+                const homeBtn = L.control({ position: 'topright' });
+                homeBtn.onAdd = () => {
+                    const div = L.DomUtil.create('div', 'leaflet-control-custom');
+                    div.innerHTML = '🏠';
+                    div.title = "Ir al inicio";
+                    div.onclick = () => this.goHome();
+                    return div;
+                };
+                homeBtn.addTo(this.map);
+
+                // Update zoom display
+                this.map.on('zoomend', () => {
+                    document.getElementById('zoom').textContent = this.map.getZoom();
+                });
+            }
+
+            async loadInitialData() {
+                // Load the default layer (malla)
+                await this.loadLayer('malla');
+            }
+
+            async loadLayer(layerName) {
+                const config = this.layerConfigs[layerName];
+                if (!config) return;
+
+                // Show loading state
+                this.setLayerLoading(layerName, true);
+
+                try {
+                    // Check if data is cached
+                    if (!this.layerData[layerName]) {
+                        const response = await fetch(config.url);
+                        
+                        if (!response.ok) {
+                            throw new Error(`Error de red: ${response.status}`);
+                        }
+                        
+                        const data = await response.json();
+                        this.layerData[layerName] = data;
+                    }
+
+                    // Switch to this layer
+                    this.switchToLayer(layerName);
+                    
+                } catch (error) {
+                    console.error(`Error cargando capa ${layerName}:`, error);
+                    this.showError(`Error al cargar ${config.name}`);
+                } finally {
+                    this.setLayerLoading(layerName, false);
+                }
+            }
+
+            switchToLayer(layerName) {
+                const config = this.layerConfigs[layerName];
+                const data = this.layerData[layerName];
+                
+                if (!config || !data) return;
+
+                // Remove current layer
+                if (this.cluster) {
+                    this.map.removeLayer(this.cluster);
+                }
+
+                // Create new cluster
+                this.cluster = L.markerClusterGroup({
+                    maxClusterRadius: 50,
+                    showCoverageOnHover: false
+                });
+
+                // Create markers with layer-specific styling
+                const layer = L.geoJSON(data, {
+                    pointToLayer: (feature, latlng) => {
+                        return L.circleMarker(latlng, {
+                            radius: 6,
+                            fillColor: config.color,
+                            color: '#fff',
+                            weight: 2,
+                            opacity: 1,
+                            fillOpacity: 0.8
+                        });
+                    },
+                    onEachFeature: (feature, layer) => {
+                        if (feature.properties) {
+                            layer.bindPopup(this.createPopup(feature.properties, config));
+                        }
+                    }
+                });
+
+                this.cluster.addLayer(layer);
+                this.map.addLayer(this.cluster);
+
+                // Update stats
+                this.pointCount = layer.getLayers().length;
+                document.getElementById('pointCount').textContent = this.pointCount.toLocaleString();
+
+                // Update current layer name
+                this.currentLayerName = layerName;
+                document.getElementById('current-layer-name').textContent = config.name;
+
+                // Update active button
+                this.updateActiveLayer(layerName);
+
+                // Fit bounds if this is the first load
+                if (layer.getBounds().isValid() && !this.map._loaded) {
+                    this.map.fitBounds(layer.getBounds(), { padding: [20, 20] });
+                }
+            }
+
+            createPopup(props, config) {
+                const title = props.name || props.NAME || props.id || `Punto de ${config.name}`;
+                
+                let content = `
+                    <div>
+                        <div class="popup-header">
+                            <div class="popup-title">${config.icon} ${title}</div>
+                        </div>
+                `;
+
+                // Show properties dynamically
+                const excludeKeys = ['geometry', 'type'];
+                const importantKeys = Object.keys(props)
+                    .filter(key => !excludeKeys.includes(key))
+                    .slice(0, 8); // Limit to first 8 properties
+
+                importantKeys.forEach(key => {
+                    if (props[key] !== null && props[key] !== undefined && props[key] !== '') {
+                        const value = typeof props[key] === 'number' ? 
+                            props[key].toLocaleString() : 
+                            props[key];
+                        
+                        content += `
+                            <div class="popup-property">
+                                <span class="popup-key">${key}:</span>
+                                <span>${value}</span>
+                            </div>
+                        `;
+                    }
+                });
+
+                content += '</div>';
+                return content;
+            }
+
+            setupEvents() {
+                // Map selection
+                document.querySelectorAll('.basemap-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const mapType = e.target.dataset.map;
+                        this.changeMap(mapType);
+                    });
+                });
+
+                // Layer selection
+                document.querySelectorAll('.layer-btn').forEach(btn => {
+                    btn.addEventListener('click', async (e) => {
+                        const layerName = e.target.dataset.layer;
+                        if (layerName !== this.currentLayerName) {
+                            await this.loadLayer(layerName);
+                        }
+                    });
+                });
+            }
+
+            changeMap(mapType) {
+                if (this.currentBase) {
+                    this.map.removeLayer(this.currentBase);
+                }
+                
+                this.currentBase = this.baseMaps[mapType];
+                this.currentBase.addTo(this.map);
+                this.updateActiveMap(mapType);
+            }
+
+            updateActiveMap(mapType) {
+                document.querySelectorAll('.basemap-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                document.querySelector(`[data-map="${mapType}"]`).classList.add('active');
+            }
+
+            updateActiveLayer(layerName) {
+                document.querySelectorAll('.layer-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                document.querySelector(`[data-layer="${layerName}"]`).classList.add('active');
+            }
+
+            setLayerLoading(layerName, isLoading) {
+                const btn = document.querySelector(`[data-layer="${layerName}"]`);
+                if (btn) {
+                    btn.classList.toggle('loading', isLoading);
+                }
+            }
+
+            goHome() {
+                if (this.cluster && this.cluster.getBounds().isValid()) {
+                    this.map.fitBounds(this.cluster.getBounds(), { padding: [20, 20] });
+                }
+            }
+
+            hideLoading() {
+                setTimeout(() => {
+                    document.getElementById('loading').classList.add('hidden');
+                }, 500);
+            }
+
+            showError(message) {
+                console.error(message);
+                // You could implement a toast notification here
+                alert(message + '. Por favor, intenta de nuevo.');
+            }
+        }
+
+        // Initialize app when DOM is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            new MapApp();
+        });
+    </script>
+</body>
+</html>
