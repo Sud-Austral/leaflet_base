@@ -732,39 +732,10 @@ class MapApp {
             }, 100);
         }
     }
-
-
-
-
-    
-
     applyLayer(layerKey) {
         const config = this.layerConfigs[layerKey];
         const data = this.dataCache[layerKey]; 
         const tipo = data?.features?.[0]?.geometry?.type;  
-        /* 
-        if (tipo == "Point") {
-            this.pointLayer(config,data,layerKey);
-        }
-        if(tipo == "GeometryCollection"){
-            this.geometryCollectionLayer(config,data,layerKey);
-        }
-        if(tipo == "LineString"){
-            this.lineStringLayer(config,data,layerKey);
-        }
-        if(tipo == "MultiLineString"){
-            this.multiLineStringLayer(config,data,layerKey);
-        }
-        if(tipo == "MultiPoint"){
-            this.multiPointLayer(config,data,layerKey);
-        }
-        if(tipo == "MultiPolygon"){
-            this.multiPolygonLayer(config,data,layerKey);
-        }
-        if(tipo == "Polygon"){
-            this.polygonLayer(config,data,layerKey);
-        }   
-        */
         const layerHandlers = {
             Point: 'pointLayer',
             GeometryCollection: 'geometryCollectionLayer',
