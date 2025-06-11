@@ -6,6 +6,10 @@ class MapApp {
         
         this.markerCluster = null;
         this.lineLayerGroup = null;   
+        this.multiLineLayerGroup = null;
+        this.multiPointLayerGroup = null;
+        this.multiPolygonLayerGroup = null;
+        this.polygonLayerGroup = null;
 
         this.dataCache = {};
         this.currentLayerKey = null;
@@ -144,13 +148,37 @@ class MapApp {
         }
     }
 
-    pointLayer(config,data,layerKey){
-        if (!data || !config) return;
-
+    clean_map(){
         // Remove existing data layer
         if (this.markerCluster) {
             this.map.removeLayer(this.markerCluster);
         }
+        // Remove existing layer
+        if (this.lineLayerGroup) {
+            this.map.removeLayer(this.lineLayerGroup);
+        }
+        // Remove existing layer
+        if (this.multiLineLayerGroup) {
+            this.map.removeLayer(this.multiLineLayerGroup);
+        }
+        // Remove existing layer
+        if (this.multiPointLayerGroup) {
+            this.map.removeLayer(this.multiPointLayerGroup);
+        }
+        // Remove existing layer
+        if (this.multiPolygonLayerGroup) {
+            this.map.removeLayer(this.multiPolygonLayerGroup);
+        }
+        // Eliminar capa previa si existe
+        if (this.polygonLayerGroup) {
+            this.map.removeLayer(this.polygonLayerGroup);
+        }
+
+    }
+
+    pointLayer(config,data,layerKey){
+        if (!data || !config) return;
+        this.clean_map();        
 
         // Create new marker cluster
         this.markerCluster = L.markerClusterGroup({
@@ -237,11 +265,7 @@ class MapApp {
     geometryCollectionLayer(config, data, layerKey) {
         if (!data || !config) return;
 
-        // Remove existing data layer
-        if (this.markerCluster) {
-            this.map.removeLayer(this.markerCluster);
-        }
-        
+        this.clean_map();      
 
         // Create new marker cluster
         this.markerCluster = L.markerClusterGroup({
@@ -332,12 +356,7 @@ class MapApp {
 
     lineStringLayer(config, data, layerKey) {
         if (!data || !config) return;
-
-        // Remove existing layer
-        if (this.lineLayerGroup) {
-            this.map.removeLayer(this.lineLayerGroup);
-        }
-
+        this.clean_map();
         // Create new layer group
         this.lineLayerGroup = L.featureGroup();
 
@@ -408,11 +427,7 @@ class MapApp {
 
     multiLineStringLayer(config, data, layerKey) {
         if (!data || !config) return;
-
-        // Remove existing layer
-        if (this.multiLineLayerGroup) {
-            this.map.removeLayer(this.multiLineLayerGroup);
-        }
+        this.clean_map();       
 
         // Create a new feature group
         this.multiLineLayerGroup = L.featureGroup();
@@ -484,11 +499,7 @@ class MapApp {
 
     multiPointLayer(config, data, layerKey) {
         if (!data || !config) return;
-
-        // Remove existing layer
-        if (this.multiPointLayerGroup) {
-            this.map.removeLayer(this.multiPointLayerGroup);
-        }
+        this.clean_map();      
 
         // Crear nuevo cluster group
         this.multiPointLayerGroup = L.markerClusterGroup({
@@ -578,11 +589,7 @@ class MapApp {
 
     multiPolygonLayer(config, data, layerKey) {
         if (!data || !config) return;
-
-        // Remove existing layer
-        if (this.multiPolygonLayerGroup) {
-            this.map.removeLayer(this.multiPolygonLayerGroup);
-        }
+        this.clean_map();     
 
         // Crear nuevo grupo de features
         this.multiPolygonLayerGroup = L.featureGroup();
@@ -657,11 +664,7 @@ class MapApp {
 
     polygonLayer(config, data, layerKey) {
         if (!data || !config) return;
-
-        // Eliminar capa previa si existe
-        if (this.polygonLayerGroup) {
-            this.map.removeLayer(this.polygonLayerGroup);
-        }
+        this.clean_map();       
 
         // Crear nuevo grupo de polígonos
         this.polygonLayerGroup = L.featureGroup();
