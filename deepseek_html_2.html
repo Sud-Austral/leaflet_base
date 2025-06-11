@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mapa Interactivo con Múltiples Capas</title>
+    <title>Mapa Interactivo con Filtros</title>
     
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
@@ -128,6 +128,7 @@
             text-align: center;
             font-size: 0.85rem;
             font-weight: 500;
+            position: relative;
         }
 
         .btn:hover {
@@ -147,6 +148,20 @@
         .btn.loading {
             opacity: 0.6;
             pointer-events: none;
+        }
+
+        .btn.loading::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            right: 8px;
+            width: 12px;
+            height: 12px;
+            border: 2px solid transparent;
+            border-top: 2px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            transform: translateY(-50%);
         }
 
         .stats {
@@ -192,6 +207,64 @@
             text-align: center;
         }
 
+        .filter-section {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .filter-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .form-input {
+            padding: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 0.8rem;
+        }
+
+        .form-input::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .filter-btn {
+            background: rgba(76, 175, 80, 0.8);
+            padding: 8px;
+            border: none;
+            border-radius: 6px;
+            color: white;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .filter-btn:hover {
+            background: rgba(76, 175, 80, 1);
+            transform: translateY(-1px);
+        }
+
+        .filter-btn.clear {
+            background: rgba(255, 107, 107, 0.8);
+        }
+
+        .filter-btn.clear:hover {
+            background: rgba(255, 107, 107, 1);
+        }
+
+        .property-select {
+            padding: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 0.8rem;
+        }
+
         /* Responsive */
         @media (max-width: 768px) {
             body {
@@ -200,12 +273,12 @@
             
             #sidebar {
                 width: 100%;
-                height: 40vh;
+                height: 50vh;
                 padding: 15px;
             }
             
             #map {
-                height: 60vh;
+                height: 50vh;
             }
 
             .btn-grid {
@@ -234,16 +307,29 @@
 
         <div class="section">
             <div class="section-title">🗂️ Capas de Datos</div>
-            <div class="layer-grid">
-                <div class="btn layer-btn active" data-layer="malla">
-                    📍 Malla San Miguel
-                </div>
-                <div class="btn layer-btn" data-layer="segunda">
-                    🎯 Segunda Base
-                </div>
+            
+            <div class="layer-grid" id="layer-buttons-container">
+                <!-- Los botones de capas se generarán dinámicamente -->
             </div>
+            
             <div class="current-layer">
-                Activa: <span id="current-layer-name">Malla San Miguel</span>
+                Activa: <span id="current-layer-name">Ninguna</span>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">🔍 Filtros</div>
+            <div class="filter-section">
+                <div class="filter-controls">
+                    <select id="filter-property" class="property-select">
+                        <option value="">Seleccione propiedad</option>
+                    </select>
+                    <input type="text" id="filter-value" class="form-input" placeholder="Valor a buscar">
+                    <div class="btn-grid">
+                        <button id="apply-filter" class="filter-btn">Aplicar Filtro</button>
+                        <button id="clear-filter" class="filter-btn clear">Limpiar Filtro</button>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -278,23 +364,30 @@
                 this.currentDataLayer = null;
                 this.markerCluster = null;
                 this.dataCache = {};
-                this.currentLayerKey = 'malla';
+                this.currentLayerKey = null;
+                this.allMarkers = {};
+                this.filteredMarkers = {};
+                this.availableProperties = new Set();
                 
+                // Configuración inicial de capas
                 this.layerConfigs = {
                     malla: {
                         url: 'https://raw.githubusercontent.com/Sud-Austral/leaflet_base/refs/heads/main/data/Malla_SanMiguel.json',
                         name: 'Malla San Miguel',
-                        color: '#667eea'
+                        color: '#667eea',
+                        icon: '📍'
                     },
                     segunda: {
                         url: 'https://raw.githubusercontent.com/Sud-Austral/leaflet_base/refs/heads/main/data/segunda_base.json',
                         name: 'Segunda Base',
-                        color: '#4ecdc4'
+                        color: '#4ecdc4',
+                        icon: '🎯'
                     },
                     tercera: {
                         url: 'https://raw.githubusercontent.com/Sud-Austral/leaflet_base/refs/heads/main/data/segunda_base.json',
                         name: 'Tercera Base',
-                        color: '#4ec1c5'
+                        color: '#ff6b6b',
+                        icon: '🚀'
                     }
                 };
                 
@@ -305,7 +398,7 @@
                 try {
                     this.setupMap();
                     this.setupEventListeners();
-                    await this.loadLayer('malla');
+                    this.renderLayerButtons();
                     this.hideLoading();
                 } catch (error) {
                     console.error('Error initializing app:', error);
@@ -327,14 +420,8 @@
                     osm: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                         attribution: '© OpenStreetMap contributors'
                     }),
-                    /*
                     satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
                         attribution: '© Esri'
-                    }),
-                    */
-                    satellite: L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-                    attribution: 'Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics',
-                    maxZoom: 22
                     }),
                     terrain: L.tileLayer('https://stamen-tiles-{s}.a.ssl.fastly.net/terrain/{z}/{x}/{y}.png', {
                         attribution: '© Stamen Design'
@@ -363,14 +450,26 @@
                     });
                 });
 
-                // Layer buttons
-                document.querySelectorAll('[data-layer]').forEach(btn => {
-                    btn.addEventListener('click', (e) => {
-                        const layerKey = e.target.getAttribute('data-layer');
-                        if (layerKey !== this.currentLayerKey) {
-                            this.loadLayer(layerKey);
-                        }
+                // Filter buttons
+                document.getElementById('apply-filter').addEventListener('click', () => this.applyFilter());
+                document.getElementById('clear-filter').addEventListener('click', () => this.clearFilter());
+            }
+
+            renderLayerButtons() {
+                const container = document.getElementById('layer-buttons-container');
+                container.innerHTML = '';
+
+                Object.entries(this.layerConfigs).forEach(([key, config]) => {
+                    const btn = document.createElement('div');
+                    btn.className = 'btn layer-btn';
+                    btn.setAttribute('data-layer', key);
+                    btn.innerHTML = `${config.icon} ${config.name}`;
+                    
+                    btn.addEventListener('click', () => {
+                        this.loadLayer(key);
                     });
+
+                    container.appendChild(btn);
                 });
             }
 
@@ -441,6 +540,11 @@
                     spiderfyOnMaxZoom: true
                 });
 
+                // Reset markers and properties
+                this.allMarkers[layerKey] = [];
+                this.filteredMarkers[layerKey] = [];
+                this.availableProperties.clear();
+
                 let pointCount = 0;
 
                 // Process GeoJSON data
@@ -459,12 +563,21 @@
                                     fillOpacity: 0.8
                                 });
 
+                                // Store feature properties in marker
+                                marker.feature = feature;
+
                                 // Add popup if properties exist
                                 if (feature.properties) {
                                     marker.bindPopup(this.createPopup(feature.properties, config.name));
+                                    
+                                    // Collect available properties
+                                    Object.keys(feature.properties).forEach(prop => {
+                                        this.availableProperties.add(prop);
+                                    });
                                 }
 
                                 this.markerCluster.addLayer(marker);
+                                this.allMarkers[layerKey].push(marker);
                                 pointCount++;
                             }
                         }
@@ -480,6 +593,9 @@
                 document.getElementById('current-layer-name').textContent = config.name;
                 this.updateActiveButton('[data-layer]', layerKey);
 
+                // Update property selector
+                this.updatePropertySelector();
+
                 // Fit to bounds if first load
                 if (this.markerCluster.getLayers().length > 0) {
                     setTimeout(() => {
@@ -488,39 +604,108 @@
                 }
             }
 
-            createPopup2(properties, layerName) {
-                let content = `<div style="max-width: 250px;"><h4>${layerName}</h4>`;
+            updatePropertySelector() {
+                const select = document.getElementById('filter-property');
+                select.innerHTML = '<option value="">Seleccione propiedad</option>';
                 
-                // Show first 5 properties
-                const keys = Object.keys(properties);  //.slice(0, 5);
-                keys.forEach(key => {
-                    const value = properties[key];
-                    if (value !== null && value !== undefined && value !== '') {
-                        content += `<p><strong>${key}:</strong> ${value}</p>`;
-                    }
+                this.availableProperties.forEach(prop => {
+                    const option = document.createElement('option');
+                    option.value = prop;
+                    option.textContent = prop;
+                    select.appendChild(option);
                 });
-                
-                content += '</div>';
-                return content;
             }
 
-            createPopup3(properties, layerName) {
-                let content = `
-                    <div style="max-width: 250px; max-height: 300px; overflow-y: auto;">
-                        <h4>${layerName}</h4>
-                `;
+            applyFilter() {
+                if (!this.currentLayerKey || !this.allMarkers[this.currentLayerKey]) {
+                    this.showError('Primero seleccione una capa');
+                    return;
+                }
                 
-                // Mostrar todas las propiedades
-                const keys = Object.keys(properties);
-                keys.forEach(key => {
-                    const value = properties[key];
-                    if (value !== null && value !== undefined && value !== '') {
-                        content += `<p><strong>${key}:</strong> ${value}</p>`;
+                const property = document.getElementById('filter-property').value;
+                const filterValue = document.getElementById('filter-value').value.toLowerCase().trim();
+                
+                if (!property) {
+                    this.showError('Seleccione una propiedad para filtrar');
+                    return;
+                }
+                
+                if (!filterValue) {
+                    this.showError('Ingrese un valor para filtrar');
+                    return;
+                }
+                
+                // Remove existing layer
+                if (this.markerCluster) {
+                    this.map.removeLayer(this.markerCluster);
+                }
+                
+                // Create new cluster for filtered markers
+                this.markerCluster = L.markerClusterGroup({
+                    maxClusterRadius: 50,
+                    showCoverageOnHover: false,
+                    spiderfyOnMaxZoom: true
+                });
+                
+                const config = this.layerConfigs[this.currentLayerKey];
+                let filteredCount = 0;
+                
+                // Apply filter
+                this.allMarkers[this.currentLayerKey].forEach(marker => {
+                    const properties = marker.feature?.properties || {};
+                    const propertyValue = String(properties[property] || '').toLowerCase();
+                    
+                    if (propertyValue.includes(filterValue)) {
+                        this.markerCluster.addLayer(marker);
+                        filteredCount++;
                     }
                 });
+                
+                // Add filtered cluster to map
+                this.map.addLayer(this.markerCluster);
+                
+                // Update UI
+                document.getElementById('pointCount').textContent = filteredCount.toLocaleString();
+                
+                if (filteredCount === 0) {
+                    this.showError('No se encontraron resultados con ese filtro');
+                } else {
+                    this.clearError();
+                    this.map.fitBounds(this.markerCluster.getBounds(), { padding: [10, 10] });
+                }
+            }
 
-                content += '</div>';
-                return content;
+            clearFilter() {
+                if (!this.currentLayerKey || !this.allMarkers[this.currentLayerKey]) {
+                    return;
+                }
+                
+                // Remove existing layer
+                if (this.markerCluster) {
+                    this.map.removeLayer(this.markerCluster);
+                }
+                
+                // Create new cluster with all markers
+                this.markerCluster = L.markerClusterGroup({
+                    maxClusterRadius: 50,
+                    showCoverageOnHover: false,
+                    spiderfyOnMaxZoom: true
+                });
+                
+                // Add all markers
+                this.allMarkers[this.currentLayerKey].forEach(marker => {
+                    this.markerCluster.addLayer(marker);
+                });
+                
+                // Add cluster to map
+                this.map.addLayer(this.markerCluster);
+                
+                // Reset UI
+                document.getElementById('filter-property').value = '';
+                document.getElementById('filter-value').value = '';
+                document.getElementById('pointCount').textContent = 
+                    this.allMarkers[this.currentLayerKey].length.toLocaleString();
+                this.clearError();
             }
 
             createPopup(properties, layerName) {
@@ -566,7 +751,6 @@
                 return content;
             }
 
-
             updateActiveButton(selector, activeValue) {
                 document.querySelectorAll(selector).forEach(btn => {
                     btn.classList.remove('active');
@@ -587,6 +771,7 @@
             showError(message) {
                 const container = document.getElementById('error-container');
                 container.innerHTML = `<div class="error-message">${message}</div>`;
+                setTimeout(() => this.clearError(), 5000);
             }
 
             clearError() {

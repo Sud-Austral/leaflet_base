@@ -1,0 +1,24 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Zona Comercial",
+        "area": "1.2 km²"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-74.0130, 40.7100],
+            [-74.0100, 40.7100],
+            [-74.0100, 40.7120],
+            [-74.0130, 40.7120],
+            [-74.0130, 40.7100]
+          ]
+        ]
+      }
+    }
+  ]
+}

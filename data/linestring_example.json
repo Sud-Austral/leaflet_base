@@ -1,0 +1,21 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Ruta 66",
+        "length": "3.2 km"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-74.0059, 40.7128],
+          [-74.0068, 40.7135],
+          [-74.0080, 40.7142],
+          [-74.0100, 40.7150]
+        ]
+      }
+    }
+  ]
+}

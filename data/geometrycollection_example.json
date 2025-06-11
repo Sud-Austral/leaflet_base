@@ -1,0 +1,40 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Complejo Deportivo",
+        "facilities": "multiple"
+      },
+      "geometry": {
+        "type": "GeometryCollection",
+        "geometries": [
+          {
+            "type": "Point",
+            "coordinates": [-74.0165, 40.7030]
+          },
+          {
+            "type": "Polygon",
+            "coordinates": [
+              [
+                [-74.0180, 40.7020],
+                [-74.0150, 40.7020],
+                [-74.0150, 40.7040],
+                [-74.0180, 40.7040],
+                [-74.0180, 40.7020]
+              ]
+            ]
+          },
+          {
+            "type": "LineString",
+            "coordinates": [
+              [-74.0170, 40.7050],
+              [-74.0160, 40.7060]
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

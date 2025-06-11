@@ -1,0 +1,26 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Red Subterránea",
+        "lines": "A, B, C"
+      },
+      "geometry": {
+        "type": "MultiLineString",
+        "coordinates": [
+          [
+            [-74.0059, 40.7128],
+            [-74.0068, 40.7135]
+          ],
+          [
+            [-74.0030, 40.7110],
+            [-74.0040, 40.7115],
+            [-74.0050, 40.7120]
+          ]
+        ]
+      }
+    }
+  ]
+}

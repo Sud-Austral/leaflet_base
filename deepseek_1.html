@@ -128,6 +128,7 @@
             text-align: center;
             font-size: 0.85rem;
             font-weight: 500;
+            position: relative;
         }
 
         .btn:hover {
@@ -147,6 +148,20 @@
         .btn.loading {
             opacity: 0.6;
             pointer-events: none;
+        }
+
+        .btn.loading::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            right: 8px;
+            width: 12px;
+            height: 12px;
+            border: 2px solid transparent;
+            border-top: 2px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            transform: translateY(-50%);
         }
 
         .stats {
@@ -192,6 +207,67 @@
             text-align: center;
         }
 
+        .layer-management {
+            margin-bottom: 10px;
+        }
+
+        .add-layer-form {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .form-input {
+            padding: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 0.8rem;
+        }
+
+        .form-input::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .add-btn {
+            background: rgba(76, 175, 80, 0.8);
+            padding: 8px;
+            border: none;
+            border-radius: 6px;
+            color: white;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .add-btn:hover {
+            background: rgba(76, 175, 80, 1);
+            transform: translateY(-1px);
+        }
+
+        .remove-layer {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            width: 20px;
+            height: 20px;
+            background: rgba(255, 107, 107, 0.8);
+            border: none;
+            border-radius: 50%;
+            color: white;
+            font-size: 10px;
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .layer-btn:hover .remove-layer {
+            display: flex;
+        }
+
         /* Responsive */
         @media (max-width: 768px) {
             body {
@@ -200,12 +276,12 @@
             
             #sidebar {
                 width: 100%;
-                height: 40vh;
+                height: 50vh;
                 padding: 15px;
             }
             
             #map {
-                height: 60vh;
+                height: 50vh;
             }
 
             .btn-grid {
@@ -233,17 +309,24 @@
         </div>
 
         <div class="section">
-            <div class="section-title">🗂️ Capas de Datos</div>
-            <div class="layer-grid">
-                <div class="btn layer-btn active" data-layer="malla">
-                    📍 Malla San Miguel
-                </div>
-                <div class="btn layer-btn" data-layer="segunda">
-                    🎯 Segunda Base
-                </div>
+            <div class="section-title">➕ Añadir Capa</div>
+            <div class="add-layer-form">
+                <input type="text" id="layer-name" class="form-input" placeholder="Nombre de la capa">
+                <input type="text" id="layer-url" class="form-input" placeholder="URL del GeoJSON">
+                <input type="color" id="layer-color" class="form-input" value="#667eea">
+                <button class="add-btn" onclick="mapApp.addNewLayer()">Añadir Capa</button>
             </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">🗂️ Capas de Datos</div>
+            
+            <div class="layer-grid" id="layer-buttons-container">
+                <!-- Los botones de capas se generarán dinámicamente -->
+            </div>
+            
             <div class="current-layer">
-                Activa: <span id="current-layer-name">Malla San Miguel</span>
+                Activa: <span id="current-layer-name">Ninguna</span>
             </div>
         </div>
 
@@ -278,25 +361,42 @@
                 this.currentDataLayer = null;
                 this.markerCluster = null;
                 this.dataCache = {};
-                this.currentLayerKey = 'malla';
+                this.currentLayerKey = null;
                 
+                // Configuración inicial de capas (se puede agregar más dinámicamente)
                 this.layerConfigs = {
                     malla: {
                         url: 'https://raw.githubusercontent.com/Sud-Austral/leaflet_base/refs/heads/main/data/Malla_SanMiguel.json',
                         name: 'Malla San Miguel',
-                        color: '#667eea'
+                        color: '#667eea',
+                        icon: '📍'
                     },
                     segunda: {
                         url: 'https://raw.githubusercontent.com/Sud-Austral/leaflet_base/refs/heads/main/data/segunda_base.json',
                         name: 'Segunda Base',
-                        color: '#4ecdc4'
+                        color: '#4ecdc4',
+                        icon: '🎯'
                     },
                     tercera: {
                         url: 'https://raw.githubusercontent.com/Sud-Austral/leaflet_base/refs/heads/main/data/segunda_base.json',
                         name: 'Tercera Base',
-                        color: '#4ec1c5'
+                        color: '#ff6b6b',
+                        icon: '🚀'
+                    },
+                    tercera1: {
+                        url: 'https://raw.githubusercontent.com/Sud-Austral/leaflet_base/refs/heads/main/data/segunda_base.json',
+                        name: 'Tercera1 Base',
+                        color: '#ff1b6b',
+                        icon: '🚀'
                     }
                 };
+                
+                // Colores predefinidos para nuevas capas
+                this.defaultColors = [
+                    '#667eea', '#4ecdc4', '#ff6b6b', '#45b7d1', '#f39c12', 
+                    '#e74c3c', '#9b59b6', '#1abc9c', '#34495e', '#f1c40f'
+                ];
+                this.colorIndex = 0;
                 
                 this.init();
             }
@@ -305,8 +405,14 @@
                 try {
                     this.setupMap();
                     this.setupEventListeners();
-                    await this.loadLayer('malla');
+                    this.renderLayerButtons();
                     this.hideLoading();
+                    
+                    // Cargar la primera capa por defecto
+                    if (Object.keys(this.layerConfigs).length > 0) {
+                        const firstLayer = Object.keys(this.layerConfigs)[0];
+                        this.loadLayer(firstLayer);
+                    }
                 } catch (error) {
                     console.error('Error initializing app:', error);
                     this.showError('Error al inicializar la aplicación');
@@ -327,14 +433,8 @@
                     osm: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                         attribution: '© OpenStreetMap contributors'
                     }),
-                    /*
                     satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
                         attribution: '© Esri'
-                    }),
-                    */
-                    satellite: L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-                    attribution: 'Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics',
-                    maxZoom: 22
                     }),
                     terrain: L.tileLayer('https://stamen-tiles-{s}.a.ssl.fastly.net/terrain/{z}/{x}/{y}.png', {
                         attribution: '© Stamen Design'
@@ -363,15 +463,118 @@
                     });
                 });
 
-                // Layer buttons
-                document.querySelectorAll('[data-layer]').forEach(btn => {
-                    btn.addEventListener('click', (e) => {
-                        const layerKey = e.target.getAttribute('data-layer');
-                        if (layerKey !== this.currentLayerKey) {
-                            this.loadLayer(layerKey);
-                        }
-                    });
+                // Enter key para agregar capa
+                document.getElementById('layer-url')?.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        this.addNewLayer();
+                    }
                 });
+            }
+
+            renderLayerButtons() {
+                const container = document.getElementById('layer-buttons-container');
+                container.innerHTML = '';
+
+                Object.entries(this.layerConfigs).forEach(([key, config]) => {
+                    const btn = document.createElement('div');
+                    btn.className = 'btn layer-btn';
+                    if (this.currentLayerKey === key) {
+                        btn.classList.add('active');
+                    }
+                    btn.setAttribute('data-layer', key);
+                    btn.innerHTML = `
+                        ${config.icon} ${config.name}
+                        <button class="remove-layer" onclick="event.stopPropagation(); mapApp.removeLayer('${key}')" title="Eliminar capa">×</button>
+                    `;
+                    
+                    btn.addEventListener('click', () => {
+                        this.loadLayer(key);
+                    });
+
+                    container.appendChild(btn);
+                });
+            }
+
+            addNewLayer() {
+                const name = document.getElementById('layer-name').value.trim();
+                const url = document.getElementById('layer-url').value.trim();
+                const color = document.getElementById('layer-color').value;
+
+                if (!name || !url) {
+                    this.showError('Por favor, ingresa un nombre y URL válidos');
+                    return;
+                }
+
+                // Validar URL
+                if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                    this.showError('La URL debe comenzar con http:// o https://');
+                    return;
+                }
+
+                // Generar key única
+                const key = name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+                
+                // Verificar si ya existe
+                if (this.layerConfigs[key]) {
+                    this.showError('Ya existe una capa con ese nombre');
+                    return;
+                }
+
+                // Agregar nueva configuración
+                this.layerConfigs[key] = {
+                    url: url,
+                    name: name,
+                    color: color,
+                    icon: '📍'
+                };
+
+                // Limpiar formulario
+                document.getElementById('layer-name').value = '';
+                document.getElementById('layer-url').value = '';
+                document.getElementById('layer-color').value = this.getNextColor();
+
+                // Re-renderizar botones
+                this.renderLayerButtons();
+                this.clearError();
+
+                // Cargar la nueva capa automáticamente
+                this.loadLayer(key);
+            }
+
+            removeLayer(layerKey) {
+                if (Object.keys(this.layerConfigs).length <= 1) {
+                    this.showError('Debe mantener al menos una capa');
+                    return;
+                }
+
+                // Confirmar eliminación
+                if (!confirm(`¿Estás seguro de que quieres eliminar la capa "${this.layerConfigs[layerKey].name}"?`)) {
+                    return;
+                }
+
+                // Eliminar de configuración y caché
+                delete this.layerConfigs[layerKey];
+                delete this.dataCache[layerKey];
+
+                // Si es la capa activa, cambiar a otra
+                if (this.currentLayerKey === layerKey) {
+                    const remainingKeys = Object.keys(this.layerConfigs);
+                    if (remainingKeys.length > 0) {
+                        this.loadLayer(remainingKeys[0]);
+                    } else {
+                        this.clearLayer();
+                    }
+                }
+
+                // Re-renderizar botones
+                this.renderLayerButtons();
+                this.clearError();
+            }
+
+            getNextColor() {
+                const color = this.defaultColors[this.colorIndex % this.defaultColors.length];
+                this.colorIndex++;
+                return color;
             }
 
             changeBaseMap(mapType) {
@@ -447,7 +650,15 @@
                 if (data.type === 'FeatureCollection' && data.features) {
                     data.features.forEach(feature => {
                         if (feature.geometry && feature.geometry.coordinates) {
-                            const [lng, lat] = feature.geometry.coordinates;
+                            let lat, lng;
+                            
+                            // Manejar diferentes formatos de coordenadas
+                            if (feature.geometry.type === 'Point') {
+                                [lng, lat] = feature.geometry.coordinates;
+                            } else if (feature.geometry.type === 'Polygon' || feature.geometry.type === 'LineString') {
+                                // Para polígonos o líneas, usar el primer punto
+                                [lng, lat] = feature.geometry.coordinates[0][0];
+                            }
                             
                             if (lat && lng && !isNaN(lat) && !isNaN(lng)) {
                                 const marker = L.circleMarker([lat, lng], {
@@ -488,39 +699,18 @@
                 }
             }
 
-            createPopup2(properties, layerName) {
-                let content = `<div style="max-width: 250px;"><h4>${layerName}</h4>`;
+            clearLayer() {
+                if (this.markerCluster) {
+                    this.map.removeLayer(this.markerCluster);
+                }
+                this.currentLayerKey = null;
+                document.getElementById('pointCount').textContent = '0';
+                document.getElementById('current-layer-name').textContent = 'Ninguna';
                 
-                // Show first 5 properties
-                const keys = Object.keys(properties);  //.slice(0, 5);
-                keys.forEach(key => {
-                    const value = properties[key];
-                    if (value !== null && value !== undefined && value !== '') {
-                        content += `<p><strong>${key}:</strong> ${value}</p>`;
-                    }
+                // Remove active class from all layer buttons
+                document.querySelectorAll('[data-layer]').forEach(btn => {
+                    btn.classList.remove('active');
                 });
-                
-                content += '</div>';
-                return content;
-            }
-
-            createPopup3(properties, layerName) {
-                let content = `
-                    <div style="max-width: 250px; max-height: 300px; overflow-y: auto;">
-                        <h4>${layerName}</h4>
-                `;
-                
-                // Mostrar todas las propiedades
-                const keys = Object.keys(properties);
-                keys.forEach(key => {
-                    const value = properties[key];
-                    if (value !== null && value !== undefined && value !== '') {
-                        content += `<p><strong>${key}:</strong> ${value}</p>`;
-                    }
-                });
-
-                content += '</div>';
-                return content;
             }
 
             createPopup(properties, layerName) {
@@ -566,7 +756,6 @@
                 return content;
             }
 
-
             updateActiveButton(selector, activeValue) {
                 document.querySelectorAll(selector).forEach(btn => {
                     btn.classList.remove('active');
@@ -587,6 +776,7 @@
             showError(message) {
                 const container = document.getElementById('error-container');
                 container.innerHTML = `<div class="error-message">${message}</div>`;
+                setTimeout(() => this.clearError(), 5000);
             }
 
             clearError() {

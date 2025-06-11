@@ -1,0 +1,20 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Estaciones Metro",
+        "operator": "MTA"
+      },
+      "geometry": {
+        "type": "MultiPoint",
+        "coordinates": [
+          [-73.9903, 40.7505],
+          [-73.9934, 40.7507],
+          [-73.9961, 40.7513]
+        ]
+      }
+    }
+  ]
+}

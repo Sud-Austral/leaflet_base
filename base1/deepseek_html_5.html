@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa Interactivo con Filtros</title>    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="style/style.css">
+</head>
+<body>
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <div class="loading-text">Cargando Mapa Interactivo...</div>
+    </div>
+    <div id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <i class="fas fa-map-marked-alt"></i>
+            </div>
+            <div>
+                <div class="sidebar-title">Mapa Interactivo</div>
+                <div class="sidebar-subtitle">Visualización multicapa con filtros avanzados</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title"><i class="fas fa-layer-group"></i> Mapas Base</div>
+            <div class="btn-grid">
+                <div class="btn active" data-map="osm">
+                    <i class="fas fa-map"></i> Estándar
+                </div>
+                <div class="btn" data-map="satellite">
+                    <i class="fas fa-satellite"></i> Satélite
+                </div>
+                <div class="btn" data-map="terrain">
+                    <i class="fas fa-mountain"></i> Terreno
+                </div>
+                <div class="btn" data-map="dark">
+                    <i class="fas fa-moon"></i> Oscuro
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title"><i class="fas fa-map-marked"></i> Capas de Datos</div>
+            
+            <div class="layer-grid" id="layer-buttons-container">
+                <!-- Los botones de capas se generarán dinámicamente -->
+            </div>
+            
+            <div class="current-layer">
+                <i class="fas fa-layer-group"></i> Capa activa: <span id="current-layer-name">Ninguna</span>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title"><i class="fas fa-filter"></i> Filtros Avanzados</div>
+            <div class="filter-section">
+                <div class="filter-controls">
+                    <div class="form-group">
+                        <label class="form-label">Propiedad a filtrar</label>
+                        <select id="filter-property" class="property-select">
+                            <option value="">Seleccione propiedad</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Valor a buscar</label>
+                        <input type="text" id="filter-value" class="form-input" placeholder="Ingrese valor de filtro">
+                    </div>
+                    
+                    <div class="filter-btn-grid">
+                        <button id="apply-filter" class="filter-btn apply">
+                            <i class="fas fa-filter"></i> Aplicar Filtro
+                        </button>
+                        <button id="clear-filter" class="filter-btn clear">
+                            <i class="fas fa-broom"></i> Limpiar Filtro
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Nueva sección de Filtro por Selección -->
+        <div class="section">
+            <div class="section-title"><i class="fas fa-list-check"></i> Filtro por Selección</div>
+            <div class="filter-section">
+                <div class="filter-controls">
+                    <div class="form-group">
+                        <label class="form-label">Propiedad</label>
+                        <select id="select-property" class="property-select">
+                            <option value="">Seleccione propiedad</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Valor</label>
+                        <select id="select-value" class="property-select" disabled>
+                            <option value="">Seleccione valor</option>
+                        </select>
+                    </div>
+                    
+                    <div class="filter-btn-grid">
+                        <button id="apply-select-filter" class="filter-btn apply">
+                            <i class="fas fa-filter"></i> Aplicar Filtro
+                        </button>
+                        <button id="clear-select-filter" class="filter-btn clear">
+                            <i class="fas fa-broom"></i> Limpiar Filtro
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title"><i class="fas fa-chart-bar"></i> Estadísticas</div>
+            <div class="stats">
+                <div class="stat">
+                    <span class="stat-number" id="pointCount">0</span>
+                    <span class="stat-label">Puntos Cargados</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-number" id="zoom">10</span>
+                    <span class="stat-label">Nivel de Zoom</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="error-container"></div>
+    </div>
+
+    <div id="map"></div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
+    <script src="js/layerConfig.js"></script>
+    <script src="js/script.js"></script>
+</body>
+</html>

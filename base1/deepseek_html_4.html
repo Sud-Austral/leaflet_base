@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa Interactivo con Filtros</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    
+</head>
+<body>
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <div class="loading-text">Cargando Mapa Interactivo...</div>
+    </div>
+
+    <button class="toggle-sidebar" id="toggle-sidebar">
+        <i class="fas fa-bars"></i>
+    </button>
+
+    <div id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <i class="fas fa-map-marked-alt"></i>
+            </div>
+            <div>
+                <div class="sidebar-title">Mapa Interactivo</div>
+                <div class="sidebar-subtitle">Visualización multicapa con filtros avanzados</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title"><i class="fas fa-layer-group"></i> Mapas Base</div>
+            <div class="btn-grid">
+                <div class="btn active" data-map="osm">
+                    <i class="fas fa-map"></i> Estándar
+                </div>
+                <div class="btn" data-map="satellite">
+                    <i class="fas fa-satellite"></i> Satélite
+                </div>
+                <div class="btn" data-map="terrain">
+                    <i class="fas fa-mountain"></i> Terreno
+                </div>
+                <div class="btn" data-map="dark">
+                    <i class="fas fa-moon"></i> Oscuro
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title"><i class="fas fa-map-marked"></i> Capas de Datos</div>
+            
+            <div class="layer-grid" id="layer-buttons-container">
+                <!-- Los botones de capas se generarán dinámicamente -->
+            </div>
+            
+            <div class="current-layer">
+                <i class="fas fa-layer-group"></i> Capa activa: <span id="current-layer-name">Ninguna</span>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title"><i class="fas fa-filter"></i> Filtros Avanzados</div>
+            <div class="filter-section">
+                <div class="filter-controls">
+                    <div class="form-group">
+                        <label class="form-label">Propiedad a filtrar</label>
+                        <select id="filter-property" class="property-select">
+                            <option value="">Seleccione propiedad</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Valor a buscar</label>
+                        <input type="text" id="filter-value" class="form-input" placeholder="Ingrese valor de filtro">
+                    </div>
+                    
+                    <div class="filter-btn-grid">
+                        <button id="apply-filter" class="filter-btn apply">
+                            <i class="fas fa-filter"></i> Aplicar Filtro
+                        </button>
+                        <button id="clear-filter" class="filter-btn clear">
+                            <i class="fas fa-broom"></i> Limpiar Filtro
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Nueva sección de Filtro por Selección -->
+        <div class="section">
+            <div class="section-title"><i class="fas fa-list-check"></i> Filtro por Selección</div>
+            <div class="filter-section">
+                <div class="filter-controls">
+                    <div class="form-group">
+                        <label class="form-label">Propiedad</label>
+                        <select id="select-property" class="property-select">
+                            <option value="">Seleccione propiedad</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Valor</label>
+                        <select id="select-value" class="property-select" disabled>
+                            <option value="">Seleccione valor</option>
+                        </select>
+                    </div>
+                    
+                    <div class="filter-btn-grid">
+                        <button id="apply-select-filter" class="filter-btn apply">
+                            <i class="fas fa-filter"></i> Aplicar Filtro
+                        </button>
+                        <button id="clear-select-filter" class="filter-btn clear">
+                            <i class="fas fa-broom"></i> Limpiar Filtro
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title"><i class="fas fa-chart-bar"></i> Estadísticas</div>
+            <div class="stats">
+                <div class="stat">
+                    <span class="stat-number" id="pointCount">0</span>
+                    <span class="stat-label">Puntos Cargados</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-number" id="zoom">10</span>
+                    <span class="stat-label">Nivel de Zoom</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="error-container"></div>
+    </div>
+
+    <div id="map"></div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
+
+    <script>
+        class MapApp {
+            constructor() {
+                this.map = null;
+                this.currentBaseLayer = null;
+                this.currentDataLayer = null;
+                this.markerCluster = null;
+                this.dataCache = {};
+                this.currentLayerKey = null;
+                this.allMarkers = {};
+                this.filteredMarkers = {};
+                this.availableProperties = new Set();
+                this.sidebarVisible = true;
+                this.uniqueValuesCache = {}; // Cache para valores únicos
+                
+                // Configuración inicial de capas
+                this.layerConfigs = {
+                    malla: {
+                        url: 'https://raw.githubusercontent.com/Sud-Austral/leaflet_base/refs/heads/main/data/Malla_SanMiguel.json',
+                        name: 'Malla San Miguel',
+                        color: '#3498db',
+                        icon: '📍'
+                    },
+                    segunda: {
+                        url: 'https://raw.githubusercontent.com/Sud-Austral/leaflet_base/refs/heads/main/data/segunda_base.json',
+                        name: 'Segunda Base',
+                        color: '#2ecc71',
+                        icon: '🎯'
+                    },
+                    tercera: {
+                        url: 'https://raw.githubusercontent.com/Sud-Austral/leaflet_base/refs/heads/main/data/segunda_base.json',
+                        name: 'Tercera Base',
+                        color: '#e74c3c',
+                        icon: '🚀'
+                    },
+                    tercera1: {
+                        url: 'https://raw.githubusercontent.com/Sud-Austral/leaflet_base/refs/heads/main/data/segunda_base.json',
+                        name: 'Tercera Base1',
+                        color: '#e14c3c',
+                        icon: '🚀'
+                    }
+                };
+                
+                this.init();
+            }
+
+            async init() {
+                try {
+                    this.setupMap();
+                    this.setupEventListeners();
+                    this.renderLayerButtons();
+                    this.hideLoading();
+                } catch (error) {
+                    console.error('Error initializing app:', error);
+                    this.showError('Error al inicializar la aplicación');
+                    this.hideLoading();
+                }
+            }
+
+            setupMap() {
+                // Initialize map
+                this.map = L.map('map', {
+                    center: [-33.45, -70.65],
+                    zoom: 10,
+                    zoomControl: true
+                });
+
+                // Base layers
+                this.baseLayers = {
+                    osm: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '© OpenStreetMap contributors'
+                    }),
+                    satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                        attribution: '© Esri'
+                    }),
+                    terrain: L.tileLayer('https://stamen-tiles-{s}.a.ssl.fastly.net/terrain/{z}/{x}/{y}.png', {
+                        attribution: '© Stamen Design'
+                    }),
+                    dark: L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                        attribution: '© CARTO'
+                    })
+                };
+
+                // Set default base layer
+                this.currentBaseLayer = this.baseLayers.osm;
+                this.currentBaseLayer.addTo(this.map);
+
+                // Map events
+                this.map.on('zoomend', () => {
+                    document.getElementById('zoom').textContent = this.map.getZoom();
+                });
+            }
+
+            setupEventListeners() {
+                // Base map buttons
+                document.querySelectorAll('[data-map]').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const mapType = e.target.closest('[data-map]').getAttribute('data-map');
+                        this.changeBaseMap(mapType);
+                    });
+                });
+
+                // Filter buttons
+                document.getElementById('apply-filter').addEventListener('click', () => this.applyFilter());
+                document.getElementById('clear-filter').addEventListener('click', () => this.clearFilter());
+                
+                // Toggle sidebar
+                document.getElementById('toggle-sidebar').addEventListener('click', () => this.toggleSidebar());
+                
+                // Nueva sección de Filtro por Selección
+                document.getElementById('select-property').addEventListener('change', (e) => {
+                    this.handleSelectPropertyChange(e.target.value);
+                });
+                document.getElementById('apply-select-filter').addEventListener('click', () => this.applySelectFilter());
+                document.getElementById('clear-select-filter').addEventListener('click', () => this.clearSelectFilter());
+            }
+            
+            toggleSidebar() {
+                this.sidebarVisible = !this.sidebarVisible;
+                const sidebar = document.getElementById('sidebar');
+                const toggleBtn = document.getElementById('toggle-sidebar');
+                
+                if (this.sidebarVisible) {
+                    sidebar.style.display = 'block';
+                    toggleBtn.innerHTML = '<i class="fas fa-bars"></i>';
+                } else {
+                    sidebar.style.display = 'none';
+                    toggleBtn.innerHTML = '<i class="fas fa-chevron-left"></i>';
+                }
+            }
+
+            renderLayerButtons() {
+                const container = document.getElementById('layer-buttons-container');
+                container.innerHTML = '';
+
+                Object.entries(this.layerConfigs).forEach(([key, config]) => {
+                    const btn = document.createElement('div');
+                    btn.className = 'btn layer-btn';
+                    btn.setAttribute('data-layer', key);
+                    btn.innerHTML = `<i class="fas fa-layer-group"></i> ${config.name}`;
+                    
+                    btn.addEventListener('click', () => {
+                        this.loadLayer(key);
+                    });
+
+                    container.appendChild(btn);
+                });
+            }
+
+            changeBaseMap(mapType) {
+                if (this.baseLayers[mapType]) {
+                    // Remove current base layer
+                    if (this.currentBaseLayer) {
+                        this.map.removeLayer(this.currentBaseLayer);
+                    }
+                    
+                    // Add new base layer
+                    this.currentBaseLayer = this.baseLayers[mapType];
+                    this.currentBaseLayer.addTo(this.map);
+                    
+                    // Update UI
+                    this.updateActiveButton('[data-map]', mapType);
+                }
+            }
+
+            async loadLayer(layerKey) {
+                const config = this.layerConfigs[layerKey];
+                if (!config) {
+                    this.showError('Configuración de capa no encontrada');
+                    return;
+                }
+
+                try {
+                    // Show loading state
+                    this.setLayerLoading(layerKey, true);
+                    this.clearError();
+
+                    // Load data if not cached
+                    if (!this.dataCache[layerKey]) {
+                        const response = await fetch(config.url);
+                        if (!response.ok) {
+                            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                        }
+                        const data = await response.json();
+                        this.dataCache[layerKey] = data;
+                    }
+
+                    // Apply layer to map
+                    this.applyLayer(layerKey);
+                    
+                } catch (error) {
+                    console.error(`Error loading layer ${layerKey}:`, error);
+                    this.showError(`Error al cargar ${config.name}: ${error.message}`);
+                } finally {
+                    this.setLayerLoading(layerKey, false);
+                }
+            }
+
+            applyLayer(layerKey) {
+                const config = this.layerConfigs[layerKey];
+                const data = this.dataCache[layerKey];
+                
+                if (!data || !config) return;
+
+                // Remove existing data layer
+                if (this.markerCluster) {
+                    this.map.removeLayer(this.markerCluster);
+                }
+
+                // Create new marker cluster
+                this.markerCluster = L.markerClusterGroup({
+                    maxClusterRadius: 50,
+                    showCoverageOnHover: false,
+                    spiderfyOnMaxZoom: true,
+                    iconCreateFunction: function (cluster) {
+                        return L.divIcon({
+                            html: `<div style="background: ${config.color}; color: white; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-weight: bold; box-shadow: 0 3px 10px rgba(0,0,0,0.2);">${cluster.getChildCount()}</div>`,
+                            className: '',
+                            iconSize: [40, 40]
+                        });
+                    }
+                });
+
+                // Reset markers and properties
+                this.allMarkers[layerKey] = [];
+                this.filteredMarkers[layerKey] = [];
+                this.availableProperties.clear();
+
+                let pointCount = 0;
+
+                // Process GeoJSON data
+                if (data.type === 'FeatureCollection' && data.features) {
+                    data.features.forEach(feature => {
+                        if (feature.geometry && feature.geometry.coordinates) {
+                            const [lng, lat] = feature.geometry.coordinates;
+                            
+                            if (lat && lng && !isNaN(lat) && !isNaN(lng)) {
+                                const marker = L.circleMarker([lat, lng], {
+                                    radius: 7,
+                                    fillColor: config.color,
+                                    color: '#fff',
+                                    weight: 2,
+                                    opacity: 1,
+                                    fillOpacity: 0.9
+                                });
+
+                                // Store feature properties in marker
+                                marker.feature = feature;
+
+                                // Add popup if properties exist
+                                if (feature.properties) {
+                                    marker.bindPopup(this.createPopup(feature.properties, config.name));
+                                    
+                                    // Collect available properties
+                                    Object.keys(feature.properties).forEach(prop => {
+                                        this.availableProperties.add(prop);
+                                    });
+                                }
+
+                                this.markerCluster.addLayer(marker);
+                                this.allMarkers[layerKey].push(marker);
+                                pointCount++;
+                            }
+                        }
+                    });
+                }
+
+                // Add cluster to map
+                this.map.addLayer(this.markerCluster);
+
+                // Update UI
+                this.currentLayerKey = layerKey;
+                document.getElementById('pointCount').textContent = pointCount.toLocaleString();
+                document.getElementById('current-layer-name').textContent = config.name;
+                this.updateActiveButton('[data-layer]', layerKey);
+
+                // Update property selectors
+                this.updatePropertySelectors();
+
+                // Reset selection filter
+                this.resetSelectFilter();
+
+                // Fit to bounds if first load
+                if (this.markerCluster.getLayers().length > 0) {
+                    setTimeout(() => {
+                        this.map.fitBounds(this.markerCluster.getBounds(), { padding: [50, 50] });
+                    }, 100);
+                }
+            }
+
+            updatePropertySelectors() {
+                // Actualizar ambos selectores de propiedades
+                const filterSelect = document.getElementById('filter-property');
+                const selectSelect = document.getElementById('select-property');
+                
+                filterSelect.innerHTML = '<option value="">Seleccione propiedad</option>';
+                selectSelect.innerHTML = '<option value="">Seleccione propiedad</option>';
+                
+                this.availableProperties.forEach(prop => {
+                    const option1 = document.createElement('option');
+                    option1.value = prop;
+                    option1.textContent = prop;
+                    filterSelect.appendChild(option1);
+                    
+                    const option2 = document.createElement('option');
+                    option2.value = prop;
+                    option2.textContent = prop;
+                    selectSelect.appendChild(option2);
+                });
+            }
+
+            applyFilter() {
+                if (!this.currentLayerKey || !this.allMarkers[this.currentLayerKey]) {
+                    this.showError('Primero seleccione una capa');
+                    return;
+                }
+                
+                const property = document.getElementById('filter-property').value;
+                const filterValue = document.getElementById('filter-value').value.toLowerCase().trim();
+                
+                if (!property) {
+                    this.showError('Seleccione una propiedad para filtrar');
+                    return;
+                }
+                
+                if (!filterValue) {
+                    this.showError('Ingrese un valor para filtrar');
+                    return;
+                }
+                
+                // Remove existing layer
+                if (this.markerCluster) {
+                    this.map.removeLayer(this.markerCluster);
+                }
+                
+                // Create new cluster for filtered markers
+                this.markerCluster = L.markerClusterGroup({
+                    maxClusterRadius: 50,
+                    showCoverageOnHover: false,
+                    spiderfyOnMaxZoom: true
+                });
+                
+                const config = this.layerConfigs[this.currentLayerKey];
+                let filteredCount = 0;
+                
+                // Apply filter
+                this.allMarkers[this.currentLayerKey].forEach(marker => {
+                    const properties = marker.feature?.properties || {};
+                    const propertyValue = String(properties[property] || '').toLowerCase();
+                    
+                    if (propertyValue.includes(filterValue)) {
+                        this.markerCluster.addLayer(marker);
+                        filteredCount++;
+                    }
+                });
+                
+                // Add filtered cluster to map
+                this.map.addLayer(this.markerCluster);
+                
+                // Update UI
+                document.getElementById('pointCount').textContent = filteredCount.toLocaleString();
+                
+                if (filteredCount === 0) {
+                    this.showError('No se encontraron resultados con ese filtro');
+                } else {
+                    this.clearError();
+                    this.map.fitBounds(this.markerCluster.getBounds(), { padding: [50, 50] });
+                }
+            }
+
+            clearFilter() {
+                if (!this.currentLayerKey || !this.allMarkers[this.currentLayerKey]) {
+                    return;
+                }
+                
+                // Remove existing layer
+                if (this.markerCluster) {
+                    this.map.removeLayer(this.markerCluster);
+                }
+                
+                // Create new cluster with all markers
+                this.markerCluster = L.markerClusterGroup({
+                    maxClusterRadius: 50,
+                    showCoverageOnHover: false,
+                    spiderfyOnMaxZoom: true
+                });
+                
+                // Add all markers
+                this.allMarkers[this.currentLayerKey].forEach(marker => {
+                    this.markerCluster.addLayer(marker);
+                });
+                
+                // Add cluster to map
+                this.map.addLayer(this.markerCluster);
+                
+                // Reset UI
+                document.getElementById('filter-property').value = '';
+                document.getElementById('filter-value').value = '';
+                document.getElementById('pointCount').textContent = 
+                    this.allMarkers[this.currentLayerKey].length.toLocaleString();
+                this.clearError();
+            }
+
+            // Nueva función para manejar cambio en la propiedad del filtro por selección
+            handleSelectPropertyChange(property) {
+                const valueSelect = document.getElementById('select-value');
+                valueSelect.innerHTML = '<option value="">Cargando valores...</option>';
+                valueSelect.disabled = true;
+                
+                if (!property || !this.currentLayerKey) {
+                    return;
+                }
+                
+                // Verificar si ya tenemos los valores en cache
+                const cacheKey = `${this.currentLayerKey}_${property}`;
+                if (this.uniqueValuesCache[cacheKey]) {
+                    this.populateValueSelect(this.uniqueValuesCache[cacheKey]);
+                    return;
+                }
+                
+                // Obtener valores únicos
+                const uniqueValues = new Set();
+                this.allMarkers[this.currentLayerKey].forEach(marker => {
+                    const properties = marker.feature?.properties || {};
+                    const value = properties[property];
+                    if (value !== null && value !== undefined && value !== '') {
+                        uniqueValues.add(value);
+                    }
+                });
+                
+                // Ordenar valores
+                const sortedValues = Array.from(uniqueValues).sort();
+                
+                // Almacenar en cache
+                this.uniqueValuesCache[cacheKey] = sortedValues;
+                
+                // Actualizar el selector de valores
+                this.populateValueSelect(sortedValues);
+            }
+            
+            // Llenar el selector de valores con opciones
+            populateValueSelect(values) {
+                const valueSelect = document.getElementById('select-value');
+                valueSelect.innerHTML = '<option value="">Seleccione valor</option>';
+                
+                values.forEach(value => {
+                    const option = document.createElement('option');
+                    option.value = value;
+                    option.textContent = value;
+                    valueSelect.appendChild(option);
+                });
+                
+                valueSelect.disabled = false;
+            }
+            
+            // Aplicar el filtro por selección
+            applySelectFilter() {
+                const property = document.getElementById('select-property').value;
+                const value = document.getElementById('select-value').value;
+                
+                if (!property || !value) {
+                    this.showError('Seleccione propiedad y valor');
+                    return;
+                }
+                
+                // Remove existing layer
+                if (this.markerCluster) {
+                    this.map.removeLayer(this.markerCluster);
+                }
+                
+                // Create new cluster for filtered markers
+                this.markerCluster = L.markerClusterGroup({
+                    maxClusterRadius: 50,
+                    showCoverageOnHover: false,
+                    spiderfyOnMaxZoom: true
+                });
+                
+                const config = this.layerConfigs[this.currentLayerKey];
+                let filteredCount = 0;
+                
+                // Apply filter (exact match)
+                this.allMarkers[this.currentLayerKey].forEach(marker => {
+                    const properties = marker.feature?.properties || {};
+                    const propertyValue = properties[property];
+                    
+                    if (String(propertyValue) === String(value)) {
+                        this.markerCluster.addLayer(marker);
+                        filteredCount++;
+                    }
+                });
+                
+                // Add filtered cluster to map
+                this.map.addLayer(this.markerCluster);
+                
+                // Update UI
+                document.getElementById('pointCount').textContent = filteredCount.toLocaleString();
+                
+                if (filteredCount === 0) {
+                    this.showError('No se encontraron resultados con ese filtro');
+                } else {
+                    this.clearError();
+                    this.map.fitBounds(this.markerCluster.getBounds(), { padding: [50, 50] });
+                }
+            }
+            
+            // Limpiar el filtro por selección
+            clearSelectFilter() {
+                // Resetear UI del filtro por selección
+                document.getElementById('select-property').value = '';
+                document.getElementById('select-value').innerHTML = '<option value="">Seleccione valor</option>';
+                document.getElementById('select-value').disabled = true;
+                
+                // Limpiar filtros y mostrar todos los puntos
+                this.clearFilter();
+            }
+            
+            // Resetear el filtro por selección al cambiar de capa
+            resetSelectFilter() {
+                document.getElementById('select-property').value = '';
+                document.getElementById('select-value').innerHTML = '<option value="">Seleccione valor</option>';
+                document.getElementById('select-value').disabled = true;
+            }
+
+            createPopup(properties, layerName) {
+                let content = `
+                    <div style="
+                        max-width: 280px;
+                        max-height: 320px;
+                        overflow-y: auto;
+                        border-radius: 12px;
+                        padding: 15px;
+                        background: linear-gradient(to bottom right, #ffffff, #f8f9fa);
+                        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                        scrollbar-width: thin;
+                        scrollbar-color: #3498db #f1f8ff;
+                        border: 1px solid rgba(0, 0, 0, 0.08);
+                    ">
+                        <style>
+                            ::-webkit-scrollbar {
+                                width: 8px;
+                            }
+                            ::-webkit-scrollbar-thumb {
+                                background-color: #3498db;
+                                border-radius: 4px;
+                            }
+                            ::-webkit-scrollbar-track {
+                                background-color: #f1f8ff;
+                                border-radius: 4px;
+                            }
+                        </style>
+                        <div style="display: flex; align-items: center; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid rgba(0,0,0,0.05);">
+                            <div style="width: 36px; height: 36px; background: linear-gradient(135deg, #3498db, #2ecc71); border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-right: 10px;">
+                                <i class="fas fa-map-marker-alt" style="color: white; font-size: 16px;"></i>
+                            </div>
+                            <h4 style="margin: 0; color: #2c3e50; font-weight: 700;">${layerName}</h4>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr; gap: 8px;">
+                `;
+
+                const keys = Object.keys(properties);
+                keys.forEach(key => {
+                    const value = properties[key];
+                    if (value !== null && value !== undefined && value !== '') {
+                        content += `
+                            <div style="display: flex; gap: 8px;">
+                                <div style="flex: 0 0 100px; font-weight: 600; color: #2c3e50;">${key}:</div>
+                                <div style="flex: 1; color: #34495e;">${value}</div>
+                            </div>
+                        `;
+                    }
+                });
+
+                content += `
+                        </div>
+                    </div>
+                `;
+                return content;
+            }
+
+            updateActiveButton(selector, activeValue) {
+                document.querySelectorAll(selector).forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                const activeBtn = document.querySelector(`${selector}[data-${selector.includes('map') ? 'map' : 'layer'}="${activeValue}"]`);
+                if (activeBtn) {
+                    activeBtn.classList.add('active');
+                }
+            }
+
+            setLayerLoading(layerKey, isLoading) {
+                const btn = document.querySelector(`[data-layer="${layerKey}"]`);
+                if (btn) {
+                    btn.classList.toggle('loading', isLoading);
+                }
+            }
+
+            showError(message) {
+                const container = document.getElementById('error-container');
+                container.innerHTML = `<div class="error-message"><i class="fas fa-exclamation-circle"></i> ${message}</div>`;
+                setTimeout(() => this.clearError(), 5000);
+            }
+
+            clearError() {
+                document.getElementById('error-container').innerHTML = '';
+            }
+
+            hideLoading() {
+                setTimeout(() => {
+                    const loading = document.getElementById('loading');
+                    if (loading) {
+                        loading.classList.add('hidden');
+                    }
+                }, 800);
+            }
+        }
+
+        // Initialize app
+        document.addEventListener('DOMContentLoaded', () => {
+            window.mapApp = new MapApp();
+        });
+    </script>
+</body>
+</html>
