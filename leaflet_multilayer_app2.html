@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa Interactivo con Múltiples Capas</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css" />
+    
+    <style>
+        :root {
+            --primary: #667eea;
+            --secondary: #764ba2;
+            --accent: #ff6b6b;
+            --accent-2: #4ecdc4;
+            --glass-bg: rgba(255, 255, 255, 0.1);
+            --text-primary: #ffffff;
+            --text-secondary: rgba(255, 255, 255, 0.8);
+            --shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            --radius: 16px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            height: 100vh;
+            display: flex;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            overflow: hidden;
+        }
+
+        .loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            transition: opacity 0.5s ease;
+        }
+
+        .loading.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top: 3px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        #map {
+            flex: 1;
+            height: 100vh;
+        }
+
+        #sidebar {
+            width: 300px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: var(--text-primary);
+            padding: 20px;
+            box-shadow: var(--shadow);
+            overflow-y: auto;
+        }
+
+        .sidebar-title {
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .section {
+            background: var(--glass-bg);
+            border-radius: var(--radius);
+            padding: 15px;
+            margin-bottom: 15px;
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .section-title {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .btn-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .layer-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 8px;
+        }
+
+        .btn {
+            padding: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid transparent;
+            text-align: center;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-1px);
+        }
+
+        .btn.active {
+            background: var(--accent);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .layer-btn.active {
+            background: var(--accent-2);
+        }
+
+        .btn.loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .stat {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 1.2rem;
+            font-weight: 700;
+            display: block;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .current-layer {
+            background: rgba(78, 205, 196, 0.2);
+            padding: 8px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            text-align: center;
+            margin-top: 10px;
+        }
+
+        .error-message {
+            background: rgba(255, 107, 107, 0.2);
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-size: 0.85rem;
+            text-align: center;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            body {
+                flex-direction: column;
+            }
+            
+            #sidebar {
+                width: 100%;
+                height: 40vh;
+                padding: 15px;
+            }
+            
+            #map {
+                height: 60vh;
+            }
+
+            .btn-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+    </div>
+
+    <div id="sidebar">
+        <div class="sidebar-title">🗺️ Mapa Multicapa</div>
+
+        <div class="section">
+            <div class="section-title">🎨 Mapas Base</div>
+            <div class="btn-grid">
+                <div class="btn active" data-map="osm">Estándar</div>
+                <div class="btn" data-map="satellite">Satélite</div>
+                <div class="btn" data-map="terrain">Terreno</div>
+                <div class="btn" data-map="dark">Oscuro</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">🗂️ Capas de Datos</div>
+            <div class="layer-grid">
+                <div class="btn layer-btn active" data-layer="malla">
+                    📍 Malla San Miguel
+                </div>
+                <div class="btn layer-btn" data-layer="segunda">
+                    🎯 Segunda Base
+                </div>
+            </div>
+            <div class="current-layer">
+                Activa: <span id="current-layer-name">Malla San Miguel</span>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">📊 Estadísticas</div>
+            <div class="stats">
+                <div class="stat">
+                    <span class="stat-number" id="pointCount">0</span>
+                    <span class="stat-label">Puntos</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-number" id="zoom">10</span>
+                    <span class="stat-label">Zoom</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="error-container"></div>
+    </div>
+
+    <div id="map"></div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
+
+    <script>
+        class MapApp {
+            constructor() {
+                this.map = null;
+                this.currentBaseLayer = null;
+                this.currentDataLayer = null;
+                this.markerCluster = null;
+                this.dataCache = {};
+                this.currentLayerKey = 'malla';
+                
+                this.layerConfigs = {
+                    malla: {
+                        url: 'https://raw.githubusercontent.com/Sud-Austral/leaflet_base/refs/heads/main/data/Malla_SanMiguel.json',
+                        name: 'Malla San Miguel',
+                        color: '#667eea'
+                    },
+                    segunda: {
+                        url: 'https://raw.githubusercontent.com/Sud-Austral/leaflet_base/refs/heads/main/data/segunda_base.json',
+                        name: 'Segunda Base',
+                        color: '#4ecdc4'
+                    }
+                };
+                
+                this.init();
+            }
+
+            async init() {
+                try {
+                    this.setupMap();
+                    this.setupEventListeners();
+                    await this.loadLayer('malla');
+                    this.hideLoading();
+                } catch (error) {
+                    console.error('Error initializing app:', error);
+                    this.showError('Error al inicializar la aplicación');
+                    this.hideLoading();
+                }
+            }
+
+            setupMap() {
+                // Initialize map
+                this.map = L.map('map', {
+                    center: [-33.45, -70.65],
+                    zoom: 10,
+                    zoomControl: true
+                });
+
+                // Base layers
+                this.baseLayers = {
+                    osm: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '© OpenStreetMap contributors'
+                    }),
+                    satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                        attribution: '© Esri'
+                    }),
+                    terrain: L.tileLayer('https://stamen-tiles-{s}.a.ssl.fastly.net/terrain/{z}/{x}/{y}.png', {
+                        attribution: '© Stamen Design'
+                    }),
+                    dark: L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                        attribution: '© CARTO'
+                    })
+                };
+
+                // Set default base layer
+                this.currentBaseLayer = this.baseLayers.osm;
+                this.currentBaseLayer.addTo(this.map);
+
+                // Map events
+                this.map.on('zoomend', () => {
+                    document.getElementById('zoom').textContent = this.map.getZoom();
+                });
+            }
+
+            setupEventListeners() {
+                // Base map buttons
+                document.querySelectorAll('[data-map]').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const mapType = e.target.getAttribute('data-map');
+                        this.changeBaseMap(mapType);
+                    });
+                });
+
+                // Layer buttons
+                document.querySelectorAll('[data-layer]').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const layerKey = e.target.getAttribute('data-layer');
+                        if (layerKey !== this.currentLayerKey) {
+                            this.loadLayer(layerKey);
+                        }
+                    });
+                });
+            }
+
+            changeBaseMap(mapType) {
+                if (this.baseLayers[mapType]) {
+                    // Remove current base layer
+                    if (this.currentBaseLayer) {
+                        this.map.removeLayer(this.currentBaseLayer);
+                    }
+                    
+                    // Add new base layer
+                    this.currentBaseLayer = this.baseLayers[mapType];
+                    this.currentBaseLayer.addTo(this.map);
+                    
+                    // Update UI
+                    this.updateActiveButton('[data-map]', mapType);
+                }
+            }
+
+            async loadLayer(layerKey) {
+                const config = this.layerConfigs[layerKey];
+                if (!config) {
+                    this.showError('Configuración de capa no encontrada');
+                    return;
+                }
+
+                try {
+                    // Show loading state
+                    this.setLayerLoading(layerKey, true);
+                    this.clearError();
+
+                    // Load data if not cached
+                    if (!this.dataCache[layerKey]) {
+                        const response = await fetch(config.url);
+                        if (!response.ok) {
+                            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                        }
+                        const data = await response.json();
+                        this.dataCache[layerKey] = data;
+                    }
+
+                    // Apply layer to map
+                    this.applyLayer(layerKey);
+                    
+                } catch (error) {
+                    console.error(`Error loading layer ${layerKey}:`, error);
+                    this.showError(`Error al cargar ${config.name}: ${error.message}`);
+                } finally {
+                    this.setLayerLoading(layerKey, false);
+                }
+            }
+
+            applyLayer(layerKey) {
+                const config = this.layerConfigs[layerKey];
+                const data = this.dataCache[layerKey];
+                
+                if (!data || !config) return;
+
+                // Remove existing data layer
+                if (this.markerCluster) {
+                    this.map.removeLayer(this.markerCluster);
+                }
+
+                // Create new marker cluster
+                this.markerCluster = L.markerClusterGroup({
+                    maxClusterRadius: 50,
+                    showCoverageOnHover: false,
+                    spiderfyOnMaxZoom: true
+                });
+
+                let pointCount = 0;
+
+                // Process GeoJSON data
+                if (data.type === 'FeatureCollection' && data.features) {
+                    data.features.forEach(feature => {
+                        if (feature.geometry && feature.geometry.coordinates) {
+                            const [lng, lat] = feature.geometry.coordinates;
+                            
+                            if (lat && lng && !isNaN(lat) && !isNaN(lng)) {
+                                const marker = L.circleMarker([lat, lng], {
+                                    radius: 6,
+                                    fillColor: config.color,
+                                    color: '#fff',
+                                    weight: 2,
+                                    opacity: 1,
+                                    fillOpacity: 0.8
+                                });
+
+                                // Add popup if properties exist
+                                if (feature.properties) {
+                                    marker.bindPopup(this.createPopup(feature.properties, config.name));
+                                }
+
+                                this.markerCluster.addLayer(marker);
+                                pointCount++;
+                            }
+                        }
+                    });
+                }
+
+                // Add cluster to map
+                this.map.addLayer(this.markerCluster);
+
+                // Update UI
+                this.currentLayerKey = layerKey;
+                document.getElementById('pointCount').textContent = pointCount.toLocaleString();
+                document.getElementById('current-layer-name').textContent = config.name;
+                this.updateActiveButton('[data-layer]', layerKey);
+
+                // Fit to bounds if first load
+                if (this.markerCluster.getLayers().length > 0) {
+                    setTimeout(() => {
+                        this.map.fitBounds(this.markerCluster.getBounds(), { padding: [10, 10] });
+                    }, 100);
+                }
+            }
+
+            createPopup(properties, layerName) {
+                let content = `<div style="max-width: 250px;"><h4>${layerName}</h4>`;
+                
+                // Show first 5 properties
+                const keys = Object.keys(properties).slice(0, 5);
+                keys.forEach(key => {
+                    const value = properties[key];
+                    if (value !== null && value !== undefined && value !== '') {
+                        content += `<p><strong>${key}:</strong> ${value}</p>`;
+                    }
+                });
+                
+                content += '</div>';
+                return content;
+            }
+
+            updateActiveButton(selector, activeValue) {
+                document.querySelectorAll(selector).forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                const activeBtn = document.querySelector(`${selector}[data-${selector.includes('map') ? 'map' : 'layer'}="${activeValue}"]`);
+                if (activeBtn) {
+                    activeBtn.classList.add('active');
+                }
+            }
+
+            setLayerLoading(layerKey, isLoading) {
+                const btn = document.querySelector(`[data-layer="${layerKey}"]`);
+                if (btn) {
+                    btn.classList.toggle('loading', isLoading);
+                }
+            }
+
+            showError(message) {
+                const container = document.getElementById('error-container');
+                container.innerHTML = `<div class="error-message">${message}</div>`;
+            }
+
+            clearError() {
+                document.getElementById('error-container').innerHTML = '';
+            }
+
+            hideLoading() {
+                setTimeout(() => {
+                    const loading = document.getElementById('loading');
+                    if (loading) {
+                        loading.classList.add('hidden');
+                    }
+                }, 800);
+            }
+        }
+
+        // Initialize app
+        document.addEventListener('DOMContentLoaded', () => {
+            window.mapApp = new MapApp();
+        });
+    </script>
+</body>
+</html>
